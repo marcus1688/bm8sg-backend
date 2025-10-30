@@ -147,6 +147,9 @@ const axios = require("axios");
 const wss = new WebSocket.Server({ noServer: true });
 const sgMail = require("@sendgrid/mail");
 
+server.keepAliveTimeout = 85000;
+server.headersTimeout = 86000;
+
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 let connectedUsers = [];
 let connectedAdmins = [];
