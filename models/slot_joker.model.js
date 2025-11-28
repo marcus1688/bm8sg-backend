@@ -24,7 +24,9 @@ const slotjokerschema = new mongoose.Schema(
     tournamentId: {
       type: String,
     },
-
+    void: {
+      type: Boolean,
+    },
     cancelTournamentId: {
       type: String,
     },
@@ -46,6 +48,9 @@ const slotjokerschema = new mongoose.Schema(
       type: Boolean,
     },
     cancel: {
+      type: Boolean,
+    },
+    remarkcancel: {
       type: Boolean,
     },
     jackpot: {
@@ -88,7 +93,15 @@ const slotjokerschema = new mongoose.Schema(
     fishWinLoss: {
       type: Number,
     },
+
+    gametype: {
+      type: String,
+    },
     claimed: {
+      type: Boolean,
+      default: false,
+    },
+    disqualified: {
       type: Boolean,
       default: false,
     },

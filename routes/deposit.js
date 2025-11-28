@@ -10,6 +10,8 @@ const { authenticateToken } = require("../auth/auth");
 const { authenticateAdminToken } = require("../auth/adminAuth");
 const { adminUser } = require("../models/adminuser.model");
 const Deposit = require("../models/deposit.model");
+const { general } = require("../models/general.model");
+const { checkSportPendingMatch } = require("../helpers/turnoverHelper");
 const { v4: uuidv4 } = require("uuid");
 const Bonus = require("../models/bonus.model");
 const BankList = require("../models/banklist.model");
@@ -123,7 +125,8 @@ async function submitLuckySpin(
     }
 
     const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
-
+    const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+    const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
     const NewBonusTransaction = new Bonus({
       transactionId: transactionId,
       userId: userId,
@@ -143,6 +146,7 @@ async function submitLuckySpin(
       isLuckySpin: true,
       processtime,
       duplicateIP: user.duplicateIP,
+      isNewCycle: isNewCycle,
     });
     await NewBonusTransaction.save();
     const walletLog = new UserWalletLog({
@@ -223,13 +227,28 @@ router.post(
         });
       }
 
-      if (req.body.depositAmount < 10) {
+      const generalSettings = await general.findOne();
+      const minDeposit = generalSettings?.minDeposit || 10;
+      const maxDeposit = generalSettings?.maxDeposit || 0;
+
+      if (req.body.depositAmount < minDeposit) {
         return res.status(200).json({
           success: false,
           message: {
-            en: "Minimum deposit amount is RM10",
-            zh: "最低存款金额为RM10",
-            ms: "Jumlah deposit minimum adalah RM10",
+            en: `Minimum deposit amount is RM${minDeposit}`,
+            zh: `最低存款金额为RM${minDeposit}`,
+            ms: `Jumlah deposit minimum adalah RM${minDeposit}`,
+          },
+        });
+      }
+
+      if (maxDeposit > 0 && req.body.depositAmount > maxDeposit) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: `Maximum deposit amount is RM${maxDeposit}`,
+            zh: `最高存款金额为RM${maxDeposit}`,
+            ms: `Jumlah deposit maksimum adalah RM${maxDeposit}`,
           },
         });
       }
@@ -304,7 +323,8 @@ router.post(
       const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
 
       const transactionId = uuidv4();
-
+      const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+      const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
       const [deposit] = await Promise.all([
         new Deposit({
           userId: userId,
@@ -324,6 +344,7 @@ router.post(
           duplicateIP: user.duplicateIP,
           remark: req.body.remark || "-",
           transactionId: transactionId,
+          isNewCycle: isNewCycle,
           balanceFetchErrors:
             Object.keys(balanceFetchErrors).length > 0
               ? balanceFetchErrors
@@ -395,6 +416,31 @@ router.post("/admin/api/deposit", authenticateAdminToken, async (req, res) => {
         },
       });
     }
+
+    const generalSettings = await general.findOne();
+    const minDeposit = generalSettings?.minDeposit || 20;
+    const maxDeposit = generalSettings?.maxDeposit || 0;
+
+    if (parseFloat(amount) < minDeposit) {
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: `Minimum deposit amount is ${minDeposit}`,
+          zh: `最低存款金额为 ${minDeposit}`,
+        },
+      });
+    }
+
+    if (maxDeposit > 0 && parseFloat(amount) > maxDeposit) {
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: `Maximum deposit amount is ${maxDeposit}`,
+          zh: `最高存款金额为 ${maxDeposit}`,
+        },
+      });
+    }
+
     const user = await User.findById(userid);
     if (!user) {
       return res.status(200).json({
@@ -470,7 +516,8 @@ router.post("/admin/api/deposit", authenticateAdminToken, async (req, res) => {
     }
 
     const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
-
+    const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+    const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
     const deposit = new Deposit({
       userId: userid,
       username: username,
@@ -490,6 +537,7 @@ router.post("/admin/api/deposit", authenticateAdminToken, async (req, res) => {
       bankid: bankid,
       status: "pending",
       duplicateIP: user.duplicateIP,
+      isNewCycle: isNewCycle,
     });
     await deposit.save();
 
@@ -1063,6 +1111,8 @@ router.post(
       }
 
       const transactionId = uuidv4();
+      const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+      const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
       const newBonusTransaction = new Bonus({
         transactionId: transactionId,
         userId: userId,
@@ -1080,6 +1130,7 @@ router.post(
         promotionId: promotionId,
         isCheckinBonus: true,
         processtime: "00:00:00",
+        isNewCycle: isNewCycle,
       });
       await newBonusTransaction.save();
       const walletLog = new UserWalletLog({
@@ -1258,6 +1309,8 @@ router.post(
       }
 
       const transactionId = uuidv4();
+      const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+      const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
       const newBonusTransaction = new Bonus({
         transactionId: transactionId,
         userId: userId,
@@ -1275,6 +1328,7 @@ router.post(
         promotionId: promotionId,
         isCheckinBonus: true,
         processtime: "00:00:00",
+        isNewCycle: isNewCycle,
       });
       await newBonusTransaction.save();
       const walletLog = new UserWalletLog({

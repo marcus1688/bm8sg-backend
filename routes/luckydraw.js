@@ -6,10 +6,13 @@ const { User } = require("../models/users.model");
 const LuckyDrawLog = require("../models/luckydrawlog.model");
 const Deposit = require("../models/deposit.model");
 const moment = require("moment");
+const { checkSportPendingMatch } = require("../helpers/turnoverHelper");
 const Bonus = require("../models/bonus.model");
 const UserWalletLog = require("../models/userwalletlog.model");
 const { v4: uuidv4 } = require("uuid");
 const Promotion = require("../models/promotion.model");
+const LuckyDrawSetting = require("../models/luckydrawsetting.model");
+const { adminUser } = require("../models/adminuser.model");
 
 const prizes = [
   { id: 1, name: "RM30", value: 30, gridPosition: 0, winningRate: 0 },
@@ -165,6 +168,8 @@ router.post("/api/luckydraw9grid/spin", authenticateToken, async (req, res) => {
     const selectedPrize = selectPrizeByRate();
     const newWalletBalance = user.wallet + selectedPrize.value;
     const transactionId = uuidv4();
+    const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+    const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
     const bonusTransaction = new Bonus({
       transactionId: transactionId,
       userId: userId,
@@ -182,6 +187,7 @@ router.post("/api/luckydraw9grid/spin", authenticateToken, async (req, res) => {
       promotionId: promotionId,
       isCheckinBonus: true,
       processtime: "00:00:00",
+      isNewCycle: isNewCycle,
     });
 
     const walletLog = new UserWalletLog({
@@ -209,9 +215,7 @@ router.post("/api/luckydraw9grid/spin", authenticateToken, async (req, res) => {
 
     await Promise.all([
       User.findByIdAndUpdate(userId, {
-        $set: {
-          wallet: newWalletBalance,
-        },
+        $inc: { wallet: selectedPrize.value },
       }),
       drawLog.save(),
       bonusTransaction.save(),
@@ -244,7 +248,40 @@ router.post("/api/luckydraw9grid/spin", authenticateToken, async (req, res) => {
   }
 });
 
-// Admin: 获取抽奖日志
+// User Get Lucky Draw Status
+router.get("/api/luckydraw9grid/status", async (req, res) => {
+  try {
+    let setting = await LuckyDrawSetting.findOne();
+    if (!setting) {
+      setting = new LuckyDrawSetting({
+        isActive: true,
+        updatedBy: "system",
+      });
+      await setting.save();
+    }
+    res.status(200).json({
+      success: true,
+      message: {
+        en: "Status retrieved successfully",
+        zh: "状态获取成功",
+        ms: "Status berjaya diperoleh",
+      },
+      data: setting,
+    });
+  } catch (error) {
+    console.error("Error getting lucky draw status:", error);
+    res.status(500).json({
+      success: false,
+      message: {
+        en: "Internal server error",
+        zh: "服务器内部错误",
+        ms: "Ralat dalaman pelayan",
+      },
+    });
+  }
+});
+
+// Admin get logs
 router.get(
   "/admin/api/luckydraw9grid/logs",
   authenticateAdminToken,
@@ -301,4 +338,99 @@ router.get(
   }
 );
 
+// Admin Get Lucky Draw Status
+router.get(
+  "/admin/api/luckydraw9grid/status",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      let setting = await LuckyDrawSetting.findOne();
+      if (!setting) {
+        setting = new LuckyDrawSetting({
+          isActive: true,
+          updatedBy: "system",
+        });
+        await setting.save();
+      }
+      res.status(200).json({
+        success: true,
+        message: {
+          en: "Status retrieved successfully",
+          zh: "状态获取成功",
+          ms: "Status berjaya diperoleh",
+        },
+        data: setting,
+      });
+    } catch (error) {
+      console.error("Error getting lucky draw status:", error);
+      res.status(500).json({
+        success: false,
+        message: {
+          en: "Internal server error",
+          zh: "服务器内部错误",
+          ms: "Ralat dalaman pelayan",
+        },
+      });
+    }
+  }
+);
+
+// Admin Toggle Lucky Draw Status
+router.patch(
+  "/admin/api/luckydraw9grid/status",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { isActive } = req.body;
+      const adminId = req.user.userId;
+      const adminuser = await adminUser.findById(adminId);
+      if (!adminuser) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "Admin user not found",
+            zh: "找不到管理员用户",
+            ms: "Pengguna admin tidak dijumpai",
+          },
+        });
+      }
+      let setting = await LuckyDrawSetting.findOne();
+      if (!setting) {
+        setting = new LuckyDrawSetting({
+          isActive: isActive,
+          updatedBy: adminuser.username,
+        });
+      } else {
+        setting.isActive = isActive;
+        setting.updatedBy = adminuser.username;
+      }
+
+      await setting.save();
+
+      res.status(200).json({
+        success: true,
+        message: {
+          en: `Lucky Draw ${
+            isActive ? "activated" : "deactivated"
+          } successfully`,
+          zh: `幸运抽奖已${isActive ? "激活" : "停用"}`,
+          ms: `Lucky Draw berjaya ${
+            isActive ? "diaktifkan" : "dinyahaktifkan"
+          }`,
+        },
+        data: setting,
+      });
+    } catch (error) {
+      console.error("Error updating lucky draw status:", error);
+      res.status(500).json({
+        success: false,
+        message: {
+          en: "Internal server error",
+          zh: "服务器内部错误",
+          ms: "Ralat dalaman pelayan",
+        },
+      });
+    }
+  }
+);
 module.exports = router;

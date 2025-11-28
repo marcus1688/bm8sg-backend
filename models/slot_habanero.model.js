@@ -36,10 +36,7 @@ const slotHabaneroSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    claimed: {
-      type: Boolean,
-      default: false,
-    },
+
     buyfeatureid: {
       type: Number, // null = regular spin, non-null = feature buy
     },

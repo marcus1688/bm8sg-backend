@@ -31,6 +31,21 @@ const modulePermissions = {
       { value: "luckydraw", label: "Lucky Draw" },
     ],
   },
+  bm8my: {
+    label: "BM8MY",
+    permissions: [
+      { value: "rescuesetting", label: "Resuce Setting" },
+      { value: "rescuereport", label: "Rescue Report" },
+      { value: "leaderboard", label: "Leaderboard" },
+      { value: "livetransaction", label: "Live Transaction" },
+      { value: "luckydraw", label: "Lucky Draw" },
+      { value: "checkinreport", label: "Check In Report" },
+      { value: "promocode", label: "Promo Code" },
+      { value: "promocodereport", label: "Promo Code Report" },
+      { value: "mission", label: "Mission" },
+      { value: "missionreport", label: "Mission Report" },
+    ],
+  },
   agent: {
     label: "Agent",
     permissions: [
@@ -166,6 +181,7 @@ const modulePermissions = {
     permissions: [
       { value: "whitelistip", label: "Whitelist IP" },
       { value: "changepassword", label: "Change Password" },
+      { value: "lockip", label: "Lock IP (Require Whitelist)" },
     ],
   },
 };

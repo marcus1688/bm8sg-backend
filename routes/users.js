@@ -7,16 +7,24 @@ const {
   GameDataLog,
 } = require("../models/users.model");
 const TelegramBot = require("node-telegram-bot-api");
+const { Kiosk } = require("../models/kiosk.model");
 const UserBankList = require("../models/userbanklist.model");
+const Lock = require("../models/lock.model");
 const promotion = require("../models/promotion.model");
 const { adminUser, adminLog } = require("../models/adminuser.model");
 const router = express.Router();
 const Deposit = require("../models/deposit.model");
+const { createCanvas, loadImage } = require("canvas");
+const { checkSportPendingMatch } = require("../helpers/turnoverHelper");
+const path = require("path");
 const vip = require("../models/vip.model");
 const Withdraw = require("../models/withdraw.model");
 const { RebateLog } = require("../models/rebate.model");
+const LiveTransaction = require("../models/transaction.model");
 const UserWalletCashOut = require("../models/userwalletcashout.model");
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const {
   generateToken,
   generateGameToken,
@@ -27,34 +35,37 @@ const {
   setRefreshCookie,
   clearCookie,
 } = require("../auth/auth");
-const SlotLivePPModal = require("../models/slot_live_pp.model");
-const SlotLiveAGModal = require("../models/slot_live_ag.model");
-const SlotLiveGSCModal = require("../models/slot_live_gsc.model");
-const SlotJokerModal = require("../models/slot_joker.model");
-const SlotJiliModal = require("../models/slot_jili.model");
-const SlotHabaneroModal = require("../models/slot_habanero.model");
-const SlotKiss918H5Modal = require("../models/slot_kiss918.model");
-const SlotCQ9Modal = require("../models/slot_cq9.model");
-const SlotLive22Modal = require("../models/slot_live22.model");
-const SlotUUSlotModal = require("../models/slot_uuslot.model");
-const LiveCT855Modal = require("../models/live_ct855.model");
-const SlotNextSpinModal = require("../models/slot_nextspin.model");
-const SlotLFC888Modal = require("../models/slot_lfc888.model");
-const SlotMega888H5Modal = require("../models/slot_mega888h5.model");
-const LotteryAP95Modal = require("../models/lottery_ap95.mode");
-const PlaytechGameModal = require("../models/slot_playtech.model");
-const slotGW99Modal = require("../models/slot_gw99.model");
-const SlotSpadeGamingModal = require("../models/slot_spadegaming.model");
-const SlotFachaiModal = require("../models/slot_fachai.model");
-const LiveSaGamingModal = require("../models/live_sagaming.model");
-const SlotLiveMicroGamingModal = require("../models/slot_microgaming.model");
-const SlotHacksawModal = require("../models/slot_hacksaw.model");
-const SportCMDModal = require("../models/sport_cmd.model");
 
 const { authenticateAdminToken } = require("../auth/adminAuth");
 const geoip = require("geoip-lite");
 const BankList = require("../models/banklist.model");
 const BankTransactionLog = require("../models/banktransactionlog.model");
+
+const SlotEpicWinModal = require("../models/slot_epicwin.model");
+const SlotFachaiModal = require("../models/slot_fachai.model");
+const SlotLivePlayAceModal = require("../models/slot_liveplayace.model");
+const SlotJiliModal = require("../models/slot_jili.model");
+const SlotYGRModal = require("../models/slot_yesgetrich.model");
+const SlotJokerModal = require("../models/slot_joker.model");
+const SlotLiveMicroGamingModal = require("../models/slot_livemicrogaming.model");
+const SlotFunkyModal = require("../models/slot_funky.model");
+const EsportTfGamingModal = require("../models/esport_tfgaming.model");
+const LiveSaGamingModal = require("../models/live_sagaming.model");
+const LiveYeebetModal = require("../models/live_yeebet.model");
+const LiveWeCasinoModal = require("../models/live_wecasino.model");
+const SlotCQ9Modal = require("../models/slot_cq9.model");
+const SlotHabaneroModal = require("../models/slot_habanero.model");
+const SlotBNGModal = require("../models/slot_bng.model");
+const SlotPlayStarModal = require("../models/slot_playstar.model");
+const SlotVPowerModal = require("../models/slot_vpower.model");
+const SlotNextSpinModal = require("../models/slot_nextspin.model");
+const SlotDCTGameModal = require("../models/slot_dctgame.model");
+const SlotPlaytechModal = require("../models/slot_playtech.model");
+const SlotFastSpinModal = require("../models/slot_fastspin.model");
+const SlotRich88Modal = require("../models/slot_rich88.model");
+const SlotBTGamingModal = require("../models/slot_btgaming.model");
+const SlotAceWinModal = require("../models/slot_acewin.model");
+const SlotSpadeGamingModal = require("../models/slot_spadegaming.model");
 
 const UserWalletLog = require("../models/userwalletlog.model");
 const Bonus = require("../models/bonus.model");
@@ -137,6 +148,70 @@ ${
   } catch (error) {
     console.error("❌ Telegram notification failed:", error.message);
     return false;
+  }
+}
+
+async function generateQRWithLogo(
+  text,
+  logoData = null,
+  maxLogoWidth = 80,
+  maxLogoHeight = 80
+) {
+  try {
+    const canvas = createCanvas(400, 400);
+    const ctx = canvas.getContext("2d");
+    await QRCode.toCanvas(canvas, text, {
+      width: 400,
+      margin: 2,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+      errorCorrectionLevel: "H",
+    });
+    const logoToUse = logoData || path.join(__dirname, "../public/logo.png");
+    if (logoToUse) {
+      const logo = await loadImage(logoToUse);
+      const logoAspectRatio = logo.width / logo.height;
+      let logoWidth = maxLogoWidth;
+      let logoHeight = maxLogoHeight;
+      if (logoAspectRatio > 1) {
+        logoWidth = maxLogoWidth;
+        logoHeight = logoWidth / logoAspectRatio;
+      } else {
+        logoHeight = maxLogoHeight;
+        logoWidth = logoHeight * logoAspectRatio;
+      }
+
+      if (logoWidth > maxLogoWidth) {
+        logoWidth = maxLogoWidth;
+        logoHeight = logoWidth / logoAspectRatio;
+      }
+      if (logoHeight > maxLogoHeight) {
+        logoHeight = maxLogoHeight;
+        logoWidth = logoHeight * logoAspectRatio;
+      }
+      const clearSize = Math.max(logoWidth, logoHeight) + 24;
+      const x = (400 - logoWidth) / 2;
+      const y = (400 - logoHeight) / 2;
+      const clearX = (400 - clearSize) / 2;
+      const clearY = (400 - clearSize) / 2;
+      ctx.fillStyle = "white";
+      ctx.fillRect(clearX, clearY, clearSize, clearSize);
+      ctx.fillStyle = "#1a1a1a";
+      ctx.beginPath();
+      ctx.roundRect(clearX, clearY, clearSize, clearSize, 12);
+      ctx.fill();
+      ctx.strokeStyle = "#333333";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.drawImage(logo, x, y, logoWidth, logoHeight);
+    }
+
+    return canvas.toDataURL();
+  } catch (error) {
+    console.error("Error generating QR with logo:", error);
+    return await QRCode.toDataURL(text);
   }
 }
 
@@ -586,6 +661,33 @@ async function updateUserReferral(
 //   }
 // });
 
+async function generateUniqueGameId() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "";
+  let isUnique = false;
+
+  while (!isUnique) {
+    result = "";
+    for (let i = 0; i < 7; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    if (result.endsWith("2x")) {
+      continue;
+    }
+
+    const existingUser = await User.findOne({
+      $or: [{ gameId: result }],
+    });
+
+    if (!existingUser) {
+      isUnique = true;
+    }
+  }
+
+  return result;
+}
+
 // Register User
 router.post("/api/register", async (req, res) => {
   const {
@@ -761,7 +863,7 @@ router.post("/api/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
     const newReferralCode = await generateUniqueReferralCode();
     const referralLink = generateReferralLink(newReferralCode);
-    const referralQrCode = await QRCode.toDataURL(referralLink);
+    const referralQrCode = await generateQRWithLogo(referralLink);
 
     let referralBy = null;
     if (referralCode) {
@@ -788,6 +890,7 @@ router.post("/api/register", async (req, res) => {
       duplicateIP: isDuplicateIP, // 新用户也标记为重复IP（如果检测到重复）
       isPhoneVerified: isPhoneVerified,
       viplevel: "Bronze",
+      gameId: await generateUniqueGameId(),
     });
 
     if (referralBy) {
@@ -955,6 +1058,568 @@ router.post("/api/register", async (req, res) => {
 //     });
 //   }
 // });
+
+// Google Login
+router.post("/api/google-login", loginLimiter, async (req, res) => {
+  const { credential, referralCode } = req.body;
+  let clientIp = req.headers["x-forwarded-for"] || req.ip;
+  clientIp = clientIp.split(",")[0].trim();
+  const geo = geoip.lookup(clientIp);
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const googleId = payload["sub"];
+    const email = payload["email"];
+    const name = payload["name"];
+    let user = await User.findOne({
+      $or: [{ googleId: googleId }, { email: email }],
+    });
+    if (!user) {
+      const baseUsername = email.split("@")[0];
+      let username = baseUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      if (username.length > 10) {
+        username = username.substring(0, 10);
+      }
+      if (username.length < 5) {
+        const randomSuffix = Math.floor(Math.random() * 100);
+        username = username + randomSuffix.toString().padStart(2, "0");
+      }
+      const allUsersWithSameIp = await User.find({
+        $or: [{ lastLoginIp: clientIp }, { registerIp: clientIp }],
+      });
+      const isDuplicateIP = allUsersWithSameIp.length > 0;
+      if (isDuplicateIP) {
+        const userIdsToUpdate = allUsersWithSameIp.map((u) => u._id);
+        if (userIdsToUpdate.length > 0) {
+          const bulkUpdateResult = await User.updateMany(
+            { _id: { $in: userIdsToUpdate } },
+            { $set: { duplicateIP: true } }
+          );
+        }
+      }
+
+      const newReferralCode = await generateUniqueReferralCode();
+      const referralLink = generateReferralLink(newReferralCode);
+      const referralQrCode = await generateQRWithLogo(referralLink);
+      let referralBy = null;
+      if (referralCode) {
+        const referrer = await User.findOne({ referralCode: referralCode });
+        if (referrer) {
+          referralBy = {
+            user_id: referrer._id,
+            username: referrer.username,
+          };
+        }
+      }
+
+      user = new User({
+        username: username,
+        email: email,
+        fullname: name,
+        googleId: googleId,
+        status: true,
+        registerIp: clientIp,
+        lastLoginIp: clientIp,
+        lastLogin: new Date(),
+        password: await bcrypt.hash(Math.random().toString(36), 10),
+        referralLink,
+        referralCode: newReferralCode,
+        referralQrCode,
+        referralBy,
+        duplicateIP: isDuplicateIP,
+        viplevel: "Bronze",
+        gameId: await generateUniqueGameId(),
+      });
+
+      await user.save();
+
+      if (referralBy) {
+        await User.findByIdAndUpdate(referralBy.user_id, {
+          $push: {
+            referrals: {
+              user_id: user._id,
+              username: user.username,
+            },
+          },
+        });
+      }
+
+      await userLogAttempt(
+        user.username,
+        user.fullname,
+        user.phonenumber,
+        req.get("User-Agent"),
+        clientIp,
+        geo ? geo.country : "Unknown",
+        geo ? geo.city : "Unknown",
+        "Google Login - New User Created"
+      );
+    } else {
+      if (!user.googleId) {
+        user.googleId = googleId;
+      }
+      user.lastLogin = new Date();
+      user.lastLoginIp = clientIp;
+      await user.save();
+    }
+
+    if (user.status === false) {
+      await userLogAttempt(
+        user.username,
+        user.fullname,
+        user.phonenumber,
+        req.get("User-Agent"),
+        clientIp,
+        geo ? geo.country : "Unknown",
+        geo ? geo.city : "Unknown",
+        "Invalid Google Login: Account Is Inactive"
+      );
+      return res.status(200).json({
+        success: false,
+        status: "inactive",
+        message: {
+          en: "Your account is currently inactive",
+          zh: "您的账号当前未激活",
+          ms: "Akaun anda kini tidak aktif",
+        },
+      });
+    }
+
+    const allUsersWithSameIp = await User.find({
+      _id: { $ne: user._id },
+      $or: [{ lastLoginIp: clientIp }, { registerIp: clientIp }],
+    });
+    const isDuplicateIP = allUsersWithSameIp.length > 0;
+    if (isDuplicateIP) {
+      const userIdsToUpdate = [
+        ...allUsersWithSameIp.map((u) => u._id),
+        user._id,
+      ];
+      await User.updateMany(
+        { _id: { $in: userIdsToUpdate } },
+        { $set: { duplicateIP: true } }
+      );
+    }
+    const { token, refreshToken, newGameToken } = await handleLoginSuccess(
+      user._id
+    );
+    await userLogAttempt(
+      user.username,
+      user.fullname,
+      user.phonenumber,
+      req.get("User-Agent"),
+      clientIp,
+      geo ? geo.country : "Unknown",
+      geo ? geo.city : "Unknown",
+      isDuplicateIP
+        ? "Google Login Success - Duplicate IP Detected"
+        : "Google Login Success"
+    );
+
+    res.status(200).json({
+      success: true,
+      token,
+      refreshToken,
+      newGameToken,
+      message: {
+        en: "Login successful",
+        zh: "登录成功",
+        ms: "Log masuk berjaya",
+      },
+    });
+  } catch (error) {
+    console.error("Google login error:", error);
+    res.status(500).json({
+      success: false,
+      message: {
+        en: "Google login failed. Please try again",
+        zh: "Google登录失败，请重试",
+        ms: "Log masuk Google gagal. Sila cuba lagi",
+      },
+    });
+  }
+});
+
+// Telegram Login
+router.post("/api/telegram-login", loginLimiter, async (req, res) => {
+  const {
+    id,
+    first_name,
+    last_name,
+    username,
+    photo_url,
+    auth_date,
+    hash,
+    referralCode,
+  } = req.body;
+  let clientIp = req.headers["x-forwarded-for"] || req.ip;
+  clientIp = clientIp.split(",")[0].trim();
+  const geo = geoip.lookup(clientIp);
+  try {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const secretKey = crypto.createHash("sha256").update(botToken).digest();
+    const dataCheckString = Object.keys(req.body)
+      .filter((key) => key !== "hash" && key !== "referralCode")
+      .sort()
+      .map((key) => `${key}=${req.body[key]}`)
+      .join("\n");
+    const computedHash = crypto
+      .createHmac("sha256", secretKey)
+      .update(dataCheckString)
+      .digest("hex");
+    if (computedHash !== hash) {
+      return res.status(401).json({
+        success: false,
+        message: {
+          en: "Invalid authentication data",
+          zh: "无效的认证数据",
+          ms: "Data pengesahan tidak sah",
+        },
+      });
+    }
+    const authDate = parseInt(auth_date);
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (currentTime - authDate > 86400) {
+      return res.status(401).json({
+        success: false,
+        message: {
+          en: "Authentication expired",
+          zh: "认证已过期",
+          ms: "Pengesahan tamat tempoh",
+        },
+      });
+    }
+    let user = await User.findOne({
+      $or: [{ telegramId: id.toString() }],
+    });
+    if (!user) {
+      let baseUsername = username || `tg${id}`;
+      let finalUsername = baseUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      if (finalUsername.length > 10) {
+        finalUsername = finalUsername.substring(0, 10);
+      }
+      if (finalUsername.length < 5) {
+        const randomSuffix = Math.floor(Math.random() * 100);
+        finalUsername =
+          finalUsername + randomSuffix.toString().padStart(2, "0");
+      }
+
+      const allUsersWithSameIp = await User.find({
+        $or: [{ lastLoginIp: clientIp }, { registerIp: clientIp }],
+      });
+      const isDuplicateIP = allUsersWithSameIp.length > 0;
+      if (isDuplicateIP) {
+        const userIdsToUpdate = allUsersWithSameIp.map((u) => u._id);
+        if (userIdsToUpdate.length > 0) {
+          await User.updateMany(
+            { _id: { $in: userIdsToUpdate } },
+            { $set: { duplicateIP: true } }
+          );
+        }
+      }
+
+      const newReferralCode = await generateUniqueReferralCode();
+      const referralLink = generateReferralLink(newReferralCode);
+      const referralQrCode = await generateQRWithLogo(referralLink);
+      let referralBy = null;
+      if (referralCode) {
+        const referrer = await User.findOne({ referralCode: referralCode });
+        if (referrer) {
+          referralBy = {
+            user_id: referrer._id,
+            username: referrer.username,
+          };
+        }
+      }
+
+      user = new User({
+        username: finalUsername,
+        fullname: `${first_name} ${last_name || ""}`.trim(),
+        telegramId: id.toString(),
+        status: true,
+        registerIp: clientIp,
+        lastLoginIp: clientIp,
+        lastLogin: new Date(),
+        password: await bcrypt.hash(Math.random().toString(36), 10),
+        referralLink,
+        referralCode: newReferralCode,
+        referralQrCode,
+        referralBy,
+        duplicateIP: isDuplicateIP,
+        viplevel: "Bronze",
+        gameId: await generateUniqueGameId(),
+      });
+
+      await user.save();
+
+      if (referralBy) {
+        await User.findByIdAndUpdate(referralBy.user_id, {
+          $push: {
+            referrals: {
+              user_id: user._id,
+              username: user.username,
+            },
+          },
+        });
+      }
+
+      await userLogAttempt(
+        user.username,
+        user.fullname,
+        user.phonenumber,
+        req.get("User-Agent"),
+        clientIp,
+        geo ? geo.country : "Unknown",
+        geo ? geo.city : "Unknown",
+        "Telegram Login - New User Created"
+      );
+    } else {
+      if (!user.telegramId) {
+        user.telegramId = id.toString();
+        user.telegramUsername = username;
+        user.telegramPhotoUrl = photo_url;
+      }
+      user.lastLogin = new Date();
+      user.lastLoginIp = clientIp;
+      await user.save();
+    }
+
+    if (user.status === false) {
+      await userLogAttempt(
+        user.username,
+        user.fullname,
+        user.phonenumber,
+        req.get("User-Agent"),
+        clientIp,
+        geo ? geo.country : "Unknown",
+        geo ? geo.city : "Unknown",
+        "Invalid Telegram Login: Account Is Inactive"
+      );
+      return res.status(200).json({
+        success: false,
+        status: "inactive",
+        message: {
+          en: "Your account is currently inactive",
+          zh: "您的账号当前未激活",
+          ms: "Akaun anda kini tidak aktif",
+        },
+      });
+    }
+
+    const allUsersWithSameIp = await User.find({
+      _id: { $ne: user._id },
+      $or: [{ lastLoginIp: clientIp }, { registerIp: clientIp }],
+    });
+    const isDuplicateIP = allUsersWithSameIp.length > 0;
+    if (isDuplicateIP) {
+      const userIdsToUpdate = [
+        ...allUsersWithSameIp.map((u) => u._id),
+        user._id,
+      ];
+      await User.updateMany(
+        { _id: { $in: userIdsToUpdate } },
+        { $set: { duplicateIP: true } }
+      );
+    }
+
+    const { token, refreshToken, newGameToken } = await handleLoginSuccess(
+      user._id
+    );
+
+    await userLogAttempt(
+      user.username,
+      user.fullname,
+      user.phonenumber,
+      req.get("User-Agent"),
+      clientIp,
+      geo ? geo.country : "Unknown",
+      geo ? geo.city : "Unknown",
+      isDuplicateIP
+        ? "Telegram Login Success - Duplicate IP Detected"
+        : "Telegram Login Success"
+    );
+
+    res.status(200).json({
+      success: true,
+      token,
+      refreshToken,
+      newGameToken,
+      message: {
+        en: "Login successful",
+        zh: "登录成功",
+        ms: "Log masuk berjaya",
+      },
+    });
+  } catch (error) {
+    console.error("Telegram login error:", error);
+    res.status(500).json({
+      success: false,
+      message: {
+        en: "Telegram login failed. Please try again",
+        zh: "Telegram登录失败，请重试",
+        ms: "Log masuk Telegram gagal. Sila cuba lagi",
+      },
+    });
+  }
+});
+
+// Complete Profile after using google login and telegram login
+router.post("/api/complete-profile", authenticateToken, async (req, res) => {
+  const { fullname, phonenumber, email, dob, referralCode } = req.body;
+  const userId = req.user.userId;
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: "User not found",
+          zh: "用户未找到",
+          ms: "Pengguna tidak dijumpai",
+        },
+      });
+    }
+
+    if (!user.email && email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "Invalid email format",
+            zh: "电子邮件格式无效",
+            ms: "Format e-mel tidak sah",
+          },
+        });
+      }
+
+      const existingEmail = await User.findOne({
+        _id: { $ne: userId },
+        email: email.toLowerCase(),
+      });
+
+      if (existingEmail) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "Email is already registered",
+            zh: "电子邮件已被注册",
+            ms: "E-mel sudah didaftarkan",
+          },
+        });
+      }
+    }
+
+    if (!phonenumber) {
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: "Phone number is required",
+          zh: "电话号码是必填项",
+          ms: "Nombor telefon diperlukan",
+        },
+      });
+    }
+    const phoneToCheck = String(phonenumber);
+    const alternativePhone = phoneToCheck.startsWith("60")
+      ? "0" + phoneToCheck.substring(2)
+      : phoneToCheck;
+    const existingPhoneNumber = await User.findOne({
+      _id: { $ne: userId },
+      $or: [{ phonenumber: phoneToCheck }, { phonenumber: alternativePhone }],
+    });
+    if (existingPhoneNumber) {
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: "Phone number is already registered",
+          zh: "手机号码已被注册",
+          ms: "Nombor telefon sudah didaftarkan",
+        },
+      });
+    }
+    const convertToStorageFormat = (phoneNumber) => {
+      if (phoneNumber && phoneNumber.startsWith("60")) {
+        return "0" + phoneNumber.substring(2);
+      }
+      return phoneNumber;
+    };
+    const phoneForStorage = convertToStorageFormat(phonenumber);
+    let referralBy = user.referralBy;
+    if (referralCode && !user.referralBy) {
+      const referrer = await User.findOne({ referralCode: referralCode });
+      if (referrer) {
+        referralBy = {
+          user_id: referrer._id,
+          username: referrer.username,
+        };
+        await User.findByIdAndUpdate(referrer._id, {
+          $push: {
+            referrals: {
+              user_id: user._id,
+              username: user.username,
+            },
+          },
+        });
+      }
+    }
+    const updateData = {
+      phonenumber: phoneForStorage,
+    };
+    if (fullname && fullname.trim()) {
+      const normalizedFullname = fullname.trim().toLowerCase();
+      const existingFullname = await User.findOne({
+        _id: { $ne: userId },
+        fullname: new RegExp(`^${normalizedFullname}$`, "i"),
+      });
+
+      if (existingFullname) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "Full name is already registered",
+            zh: "全名已被注册",
+            ms: "Nama penuh sudah didaftarkan",
+          },
+        });
+      }
+      updateData.fullname = normalizedFullname;
+    }
+    if (dob) {
+      updateData.dob = dob;
+    }
+    if (referralBy) {
+      updateData.referralBy = referralBy;
+    }
+    if (!user.email && email) {
+      updateData.email = email.toLowerCase();
+    }
+    await User.findByIdAndUpdate(userId, updateData);
+    res.status(200).json({
+      success: true,
+      message: {
+        en: "Profile updated successfully",
+        zh: "资料更新成功",
+        ms: "Profil berjaya dikemas kini",
+      },
+    });
+  } catch (error) {
+    console.error("Complete profile error:", error);
+    res.status(200).json({
+      success: false,
+      message: {
+        en: "Failed to update profile",
+        zh: "更新资料失败",
+        ms: "Gagal mengemaskini profil",
+      },
+    });
+  }
+});
 
 // User Login
 router.post("/api/login", loginLimiter, async (req, res) => {
@@ -1239,7 +1904,7 @@ router.get("/api/userdata", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const user = await User.findById(userId).select(
-      "fullname username bankAccounts totaldeposit email lastRebateClaim lastCommissionClaim telegramId facebookId lastLogin phonenumber luckySpinClaim  wallet createdAt dob withdrawlock rebate email isPhoneVerified isEmailVerified monthlyBonusCountdownTime monthlyLoyaltyCountdownTime weeklySignInTime totaldeposit viplevel cryptoWallet luckySpinCount luckySpinAmount referralLink referralCode referralQrCode positionTaking totalturnover firstDepositDate gw99GameID gw99GamePW alipayGameID lionKingGameID "
+      "fullname username bankAccounts totaldeposit email lastRebateClaim lastCommissionClaim telegramId facebookId lastLogin phonenumber luckySpinClaim  wallet createdAt dob withdrawlock rebate email isPhoneVerified isEmailVerified monthlyBonusCountdownTime monthlyLoyaltyCountdownTime weeklySignInTime totaldeposit viplevel cryptoWallet luckySpinCount luckySpinAmount referralLink referralCode referralQrCode referralBy positionTaking totalturnover firstDepositDate googleId luckySpinPoints mega888GameID mega888GamePW"
     );
     if (!user) {
       return res.status(200).json({ message: "用户未找到" });
@@ -1377,16 +2042,16 @@ router.post("/api/addbank", async (req, res) => {
       });
     }
 
-    if (userCheck.bankAccounts.length >= 1) {
-      return res.status(200).json({
-        success: false,
-        message: {
-          en: "Maximum 1 bank accounts allowed",
-          zh: "最多只能添加1个银行账户",
-          ms: "Maksimum 1 akaun bank dibenarkan",
-        },
-      });
-    }
+    // if (userCheck.bankAccounts.length >= 1) {
+    //   return res.status(200).json({
+    //     success: false,
+    //     message: {
+    //       en: "Maximum 1 bank accounts allowed",
+    //       zh: "最多只能添加1个银行账户",
+    //       ms: "Maksimum 1 akaun bank dibenarkan",
+    //     },
+    //   });
+    // }
 
     await User.updateOne(
       { fullname: normalizedName },
@@ -1511,6 +2176,7 @@ router.delete("/api/userbank", authenticateToken, async (req, res) => {
         message: {
           en: "User not found",
           zh: "找不到用户",
+          ms: "Pengguna tidak dijumpai",
         },
       });
     }
@@ -1519,6 +2185,7 @@ router.delete("/api/userbank", authenticateToken, async (req, res) => {
       message: {
         en: "Bank account deleted successfully",
         zh: "银行账户已成功删除",
+        ms: "Akaun bank berjaya dipadam",
       },
     });
   } catch (error) {
@@ -1528,6 +2195,7 @@ router.delete("/api/userbank", authenticateToken, async (req, res) => {
       message: {
         en: "Failed to delete bank account",
         zh: "删除银行账户失败",
+        ms: "Gagal memadam akaun bank",
       },
     });
   }
@@ -1537,20 +2205,26 @@ async function checkAndUpdateVIPLevel(userId) {
   try {
     const user = await User.findById(userId);
     if (!user) {
-      console.error("User not found when checking VIP level");
       return { success: false, message: "User not found" };
     }
+
     const vipSettings = await vip.findOne({});
     if (
       !vipSettings ||
       !vipSettings.vipLevels ||
       vipSettings.vipLevels.length === 0
     ) {
-      console.error("VIP settings not found");
       return { success: false, message: "VIP settings not found" };
     }
+
     const totalDeposit = user.totaldeposit;
-    const sortedVipLevels = [...vipSettings.vipLevels].sort((a, b) => {
+    const excludedLevels = ["BM8 Elite VIP"];
+
+    const filteredVipLevels = vipSettings.vipLevels.filter((level) => {
+      return !excludedLevels.includes(level.name);
+    });
+
+    const sortedVipLevels = [...filteredVipLevels].sort((a, b) => {
       let depositA = 0;
       let depositB = 0;
       if (a.benefits instanceof Map) {
@@ -1558,15 +2232,16 @@ async function checkAndUpdateVIPLevel(userId) {
       } else {
         depositA = parseFloat(a.benefits["Total Deposit"] || 0);
       }
-
       if (b.benefits instanceof Map) {
         depositB = parseFloat(b.benefits.get("Total Deposit") || 0);
       } else {
         depositB = parseFloat(b.benefits["Total Deposit"] || 0);
       }
-
+      if (isNaN(depositA)) depositA = 0;
+      if (isNaN(depositB)) depositB = 0;
       return depositB - depositA;
     });
+
     let newLevel = null;
     for (const level of sortedVipLevels) {
       let requiredDeposit = 0;
@@ -1575,37 +2250,52 @@ async function checkAndUpdateVIPLevel(userId) {
       } else {
         requiredDeposit = parseFloat(level.benefits["Total Deposit"] || 0);
       }
+      if (isNaN(requiredDeposit)) requiredDeposit = 0;
+
       if (totalDeposit >= requiredDeposit) {
         newLevel = level.name;
         break;
       }
     }
+
     if (!newLevel && sortedVipLevels.length > 0) {
       const lowestLevelIndex = sortedVipLevels.length - 1;
       newLevel = sortedVipLevels[lowestLevelIndex].name;
     }
+
+    if (excludedLevels.includes(user.viplevel)) {
+      return {
+        success: true,
+        message: "User in special VIP level, no auto-update",
+        currentLevel: user.viplevel,
+      };
+    }
+
     if (newLevel && newLevel !== user.viplevel) {
       const oldLevel = user.viplevel;
+
+      if (user.lowestviplevel) {
+        const newLevelIndex = sortedVipLevels.findIndex(
+          (level) => level.name === newLevel
+        );
+        const lowestLevelIndex = sortedVipLevels.findIndex(
+          (level) => level.name === user.lowestviplevel
+        );
+
+        if (lowestLevelIndex !== -1 && newLevelIndex > lowestLevelIndex) {
+          return {
+            success: false,
+            message: "Cannot downgrade below lowest VIP level",
+            currentLevel: user.viplevel,
+            lowestLevel: user.lowestviplevel,
+            attemptedLevel: newLevel,
+          };
+        }
+      }
+
       user.viplevel = newLevel;
       await user.save();
-      console.log(
-        `User ${user.username} VIP level updated from ${oldLevel} to ${newLevel}`
-      );
-      try {
-        // 假设您有一个VIPChangeLog模型来记录VIP变更
-        /*
-        await new VIPChangeLog({
-          userId: user._id,
-          username: user.username,
-          oldLevel,
-          newLevel,
-          reason: "Total deposit threshold reached",
-          totalDeposit: user.totaldeposit
-        }).save();
-        */
-      } catch (logError) {
-        console.error("Error logging VIP change:", logError);
-      }
+
       return {
         success: true,
         message: "VIP level updated",
@@ -1620,7 +2310,6 @@ async function checkAndUpdateVIPLevel(userId) {
       currentLevel: user.viplevel,
     };
   } catch (error) {
-    console.error("Error in checkAndUpdateVIPLevel:", error);
     return {
       success: false,
       message: "Internal server error",
@@ -1629,10 +2318,172 @@ async function checkAndUpdateVIPLevel(userId) {
   }
 }
 
+function preventDuplicate(getKey) {
+  return async (req, res, next) => {
+    const key = getKey(req);
+    try {
+      await Lock.create({ key });
+      res.on("finish", async () => {
+        await Lock.deleteOne({ key }).catch(() => {});
+      });
+
+      next();
+    } catch (error) {
+      if (error.code === 11000) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "This request is already being processed, please wait",
+            zh: "此请求正在处理中，请稍候",
+          },
+        });
+      }
+      next();
+    }
+  };
+}
+
+async function updateUserGameLocks(userId) {
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      console.error(`User not found: ${userId}`);
+      return { success: false };
+    }
+    const allKiosks = await Kiosk.find({}).select("databaseName name");
+    const latestWithdraw = await Withdraw.findOne({
+      userId: userId,
+      status: "approved",
+    }).sort({ createdAt: -1 });
+    let effectiveResetDate = null;
+    if (latestWithdraw && user.turnoverResetAt) {
+      effectiveResetDate =
+        latestWithdraw.createdAt > user.turnoverResetAt
+          ? latestWithdraw.createdAt
+          : user.turnoverResetAt;
+    } else if (latestWithdraw) {
+      effectiveResetDate = latestWithdraw.createdAt;
+    } else if (user.turnoverResetAt) {
+      effectiveResetDate = user.turnoverResetAt;
+    }
+    const depositsAfterWithdraw = await Deposit.find({
+      userId: userId,
+      status: "approved",
+      ...(effectiveResetDate && { createdAt: { $gt: effectiveResetDate } }),
+    }).sort({ createdAt: 1 });
+    const bonusesAfterWithdraw = await Bonus.find({
+      userId: userId,
+      status: "approved",
+      ...(effectiveResetDate && { createdAt: { $gt: effectiveResetDate } }),
+    }).sort({ createdAt: 1 });
+    const allTransactions = [
+      ...depositsAfterWithdraw.map((d) => ({
+        type: "deposit",
+        data: d,
+        date: d.createdAt,
+        isNewCycle: d.isNewCycle || false,
+      })),
+      ...bonusesAfterWithdraw.map((b) => ({
+        type: "bonus",
+        data: b,
+        date: b.createdAt,
+        isNewCycle: b.isNewCycle || false,
+      })),
+    ].sort((a, b) => a.date - b.date);
+    if (allTransactions.length === 0) {
+      const newGameLock = {};
+      allKiosks.forEach((kiosk) => {
+        if (kiosk.databaseName) {
+          newGameLock[kiosk.databaseName] = { lock: false };
+        }
+      });
+      await User.findByIdAndUpdate(userId, { $set: { gameLock: newGameLock } });
+      console.log(
+        `No transactions - all games unlocked for user ${user.username}`
+      );
+      return { success: true, hasRestrictions: false };
+    }
+    let startIndex = 0;
+    for (let i = allTransactions.length - 1; i >= 0; i--) {
+      if (
+        allTransactions[i].isNewCycle === true &&
+        allTransactions[i].type === "deposit"
+      ) {
+        startIndex = i;
+        break;
+      }
+    }
+    if (startIndex === 0) {
+      for (let i = allTransactions.length - 1; i >= 0; i--) {
+        if (allTransactions[i].isNewCycle === true) {
+          startIndex = i;
+          break;
+        }
+      }
+    }
+    const validTransactions = allTransactions.slice(startIndex);
+    const allowedGamesSet = new Set();
+    let hasRestrictions = false;
+    for (const tx of validTransactions) {
+      if (tx.type === "bonus") {
+        const bonus = tx.data;
+        const promotionData = await promotion.findById(bonus.promotionId);
+        if (
+          promotionData &&
+          promotionData.allowedGameDatabaseNames &&
+          promotionData.allowedGameDatabaseNames.length > 0
+        ) {
+          hasRestrictions = true;
+          promotionData.allowedGameDatabaseNames.forEach((game) => {
+            allowedGamesSet.add(game);
+          });
+        }
+      }
+    }
+    const allowedGames = Array.from(allowedGamesSet);
+    const newGameLock = {};
+    if (hasRestrictions && allowedGames.length > 0) {
+      allKiosks.forEach((kiosk) => {
+        if (kiosk.databaseName) {
+          const isAllowed = allowedGames.some(
+            (allowed) =>
+              allowed.toLowerCase() === kiosk.databaseName.toLowerCase()
+          );
+          newGameLock[kiosk.databaseName] = {
+            lock: !isAllowed,
+            reason: isAllowed ? null : "promotion_restriction",
+          };
+        }
+      });
+    } else {
+      allKiosks.forEach((kiosk) => {
+        if (kiosk.databaseName) {
+          newGameLock[kiosk.databaseName] = {
+            lock: false,
+          };
+        }
+      });
+    }
+    await User.findByIdAndUpdate(userId, {
+      $set: { gameLock: newGameLock },
+    });
+    return {
+      success: true,
+      hasRestrictions,
+      allowedGames,
+      totalGames: Object.keys(newGameLock).length,
+    };
+  } catch (error) {
+    console.error("Error updating game locks:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Admin Approve Deposit
 router.post(
   "/admin/api/approvedeposit/:depositId",
   authenticateAdminToken,
+  preventDuplicate((req) => `deposit-${req.params.depositId}`),
   async (req, res) => {
     const { depositId } = req.params;
     const { depositname } = req.body;
@@ -1687,7 +2538,6 @@ router.post(
           },
         });
       }
-
       const kioskSettings = await kioskbalance.findOne({});
       if (kioskSettings && kioskSettings.status) {
         const kioskResult = await updateKioskBalance(
@@ -1710,12 +2560,10 @@ router.post(
           });
         }
       }
-
       const formattedProcessTime = calculateProcessingTime(deposit.createdAt);
       if (user.firstDepositDate === null) {
         deposit.newDeposit = true;
       }
-
       deposit.status = "approved";
       deposit.processBy = adminuser.username;
       deposit.processtime = formattedProcessTime;
@@ -1724,17 +2572,12 @@ router.post(
       }
       await deposit.save();
 
-      const spinSetting = await LuckySpinSetting.findOne();
-      let spinCount = 0;
-      if (spinSetting) {
-        spinCount = Math.floor(deposit.amount / spinSetting.depositAmount);
-      }
+      await updateUserGameLocks(user._id);
 
       const updateFields = {
         $inc: {
           totaldeposit: deposit.amount,
           wallet: deposit.amount,
-          ...(spinCount > 0 && { luckySpinCount: spinCount }),
         },
         $set: {
           lastdepositdate: new Date(),
@@ -1798,6 +2641,7 @@ router.post(
       const depositLog = new BankTransactionLog({
         bankName: bank.bankname,
         ownername: bank.ownername,
+        bankAccount: bank.bankaccount,
         remark: deposit.remark,
         lastBalance: updatedBank.currentbalance - deposit.amount,
         currentBalance: updatedBank.currentbalance,
@@ -1816,6 +2660,32 @@ router.post(
         deposit.processtime,
         "deposit"
       );
+
+      const depositCount = await LiveTransaction.countDocuments({
+        type: "deposit",
+      });
+      if (depositCount >= 5) {
+        const oldestDepositTransaction = await LiveTransaction.findOne({
+          type: "deposit",
+        })
+          .sort({ time: 1 })
+          .limit(1);
+        if (oldestDepositTransaction) {
+          oldestDepositTransaction.username = user.username;
+          oldestDepositTransaction.amount = deposit.amount;
+          oldestDepositTransaction.time = new Date();
+          await oldestDepositTransaction.save();
+        }
+      } else {
+        const newTransaction = new LiveTransaction({
+          type: "deposit",
+          username: user.username,
+          amount: deposit.amount,
+          time: new Date(),
+          status: "completed",
+        });
+        await newTransaction.save();
+      }
 
       res.status(200).json({
         success: true,
@@ -1841,6 +2711,7 @@ router.post(
 router.post(
   "/admin/api/approvewithdraw/:withdrawId",
   authenticateAdminToken,
+  preventDuplicate((req) => `withdraw-${req.params.withdrawId}`),
   async (req, res) => {
     const { withdrawId } = req.params;
     const { bankId, cashoutAmount } = req.body;
@@ -1996,6 +2867,7 @@ router.post(
       const withdrawLog = new BankTransactionLog({
         bankName: bank.bankname,
         ownername: bank.ownername,
+        bankAccount: bank.bankaccount,
         remark: withdraw.remark,
         lastBalance: updatedBank.currentbalance + actualWithdrawAmount,
         currentBalance: updatedBank.currentbalance,
@@ -2013,6 +2885,33 @@ router.post(
         withdraw.processtime,
         "withdrawal"
       );
+
+      const withdrawCount = await LiveTransaction.countDocuments({
+        type: "withdraw",
+      });
+      if (withdrawCount >= 5) {
+        const oldestWithdrawTransaction = await LiveTransaction.findOne({
+          type: "withdraw",
+        })
+          .sort({ time: 1 })
+          .limit(1);
+        if (oldestWithdrawTransaction) {
+          oldestWithdrawTransaction.username = user.username;
+          oldestWithdrawTransaction.amount = actualWithdrawAmount;
+          oldestWithdrawTransaction.time = new Date();
+          await oldestWithdrawTransaction.save();
+        }
+      } else {
+        const newTransaction = new LiveTransaction({
+          type: "withdraw",
+          username: user.username,
+          amount: actualWithdrawAmount,
+          time: new Date(),
+          status: "completed",
+        });
+        await newTransaction.save();
+      }
+
       res.status(200).json({
         success: true,
         message: {
@@ -2037,6 +2936,7 @@ router.post(
 router.post(
   "/admin/api/approvebonus/:bonusId",
   authenticateAdminToken,
+  preventDuplicate((req) => `bonus-${req.params.bonusId}`),
   async (req, res) => {
     const { bonusId } = req.params;
     const userId = req.user.userId;
@@ -2108,7 +3008,7 @@ router.post(
       bonus.processBy = adminuser.username;
       bonus.processtime = formattedProcessTime;
       await bonus.save();
-
+      await updateUserGameLocks(user._id);
       const updateFields = {
         $inc: {
           totalbonus: bonus.amount,
@@ -2163,6 +3063,7 @@ router.post(
 router.post(
   "/admin/api/rejectdeposit/:depositId",
   authenticateAdminToken,
+  preventDuplicate((req) => `deposit-${req.params.depositId}`),
   async (req, res) => {
     const { depositId } = req.params;
     const { rejectRemark } = req.body;
@@ -2249,6 +3150,7 @@ router.post(
 router.post(
   "/admin/api/rejectwithdraw/:withdrawId",
   authenticateAdminToken,
+  preventDuplicate((req) => `withdraw-${req.params.withdrawId}`),
   async (req, res) => {
     const { withdrawId } = req.params;
     const { rejectRemark } = req.body;
@@ -2298,8 +3200,11 @@ router.post(
 
       const formattedProcessTime = calculateProcessingTime(withdraw.createdAt);
 
-      user.wallet += withdraw.amount;
-      await user.save();
+      const updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        { $inc: { wallet: withdraw.amount } },
+        { new: true }
+      );
 
       withdraw.status = "rejected";
       withdraw.processBy = adminuser.username;
@@ -2350,6 +3255,7 @@ router.post(
 router.post(
   "/admin/api/rejectbonus/:bonusId",
   authenticateAdminToken,
+  preventDuplicate((req) => `bonus-${req.params.bonusId}`),
   async (req, res) => {
     const { bonusId } = req.params;
     const { rejectRemark } = req.body;
@@ -2435,6 +3341,7 @@ router.post(
 router.post(
   "/admin/api/revertdeposit/:depositId",
   authenticateAdminToken,
+  preventDuplicate((req) => `deposit-${req.params.depositId}`),
   async (req, res) => {
     try {
       const { depositId } = req.params;
@@ -2490,18 +3397,16 @@ router.post(
 
       let bank = null;
 
-      if (deposit.method !== "auto") {
-        bank = await BankList.findById(deposit.bankid);
+      bank = await BankList.findById(deposit.bankid);
 
-        if (!bank) {
-          return res.status(200).json({
-            success: false,
-            message: {
-              en: "Bank account not found",
-              zh: "找不到银行账户",
-            },
-          });
-        }
+      if (!bank) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "Bank account not found",
+            zh: "找不到银行账户",
+          },
+        });
       }
 
       const kioskSettings = await kioskbalance.findOne({});
@@ -2531,39 +3436,59 @@ router.post(
         deposit.newDeposit = false;
       }
 
-      const spinSetting = await LuckySpinSetting.findOne();
-      if (spinSetting) {
-        const spinCount = Math.floor(
-          deposit.amount / spinSetting.depositAmount
-        );
-        if (user.luckySpinCount < spinCount) {
-          return res.status(200).json({
-            success: false,
-            message: {
-              en: "User does not have enough Lucky Spins to revert",
-              zh: "用户没有足够的幸运转盘次数可撤销",
-            },
-          });
-        }
-        user.luckySpinCount -= spinCount;
-      }
-
-      user.wallet -= deposit.amount;
-      user.totaldeposit -= deposit.amount;
-      await user.save();
-
+      const updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        {
+          $inc: {
+            wallet: -deposit.amount,
+            totaldeposit: -deposit.amount,
+          },
+        },
+        { new: true }
+      );
       await checkAndUpdateVIPLevel(user._id);
 
-      if (deposit.method !== "auto" && bank) {
-        bank.currentbalance -= deposit.amount;
-        bank.totalDeposits -= deposit.amount;
-        await bank.save();
-      }
+      bank.currentbalance -= deposit.amount;
+      bank.totalDeposits -= deposit.amount;
+      await bank.save();
 
       deposit.reverted = true;
       deposit.status = "reverted";
       deposit.revertedProcessBy = adminuser.username;
       await deposit.save();
+
+      const relatedBonus = await Bonus.findOne({
+        depositId: deposit._id,
+        status: "approved",
+      });
+
+      if (relatedBonus) {
+        const promotionData = await promotion.findById(
+          relatedBonus.promotionId
+        );
+        if (
+          promotionData &&
+          promotionData.allowedGameDatabaseNames &&
+          promotionData.allowedGameDatabaseNames.length > 0
+        ) {
+          const allKiosks = await Kiosk.find({}).select("databaseName name");
+          const currentGameLock = user.gameLock || {};
+          promotionData.allowedGameDatabaseNames.forEach((gameName) => {
+            const kiosk = allKiosks.find(
+              (k) => k.databaseName.toLowerCase() === gameName.toLowerCase()
+            );
+            if (kiosk) {
+              currentGameLock[kiosk.databaseName] = {
+                lock: true,
+                reason: "promotion_reverted",
+              };
+            }
+          });
+          await User.findByIdAndUpdate(user._id, {
+            $set: { gameLock: currentGameLock },
+          });
+        }
+      }
 
       const walletLog = await UserWalletLog.findOne({
         transactionid: deposit.transactionId,
@@ -2579,22 +3504,35 @@ router.post(
       adminuser.totalRevertedDeposits += 1;
       await adminuser.save();
 
-      if (deposit.method !== "auto" && bank) {
-        const transactionLog = new BankTransactionLog({
-          bankName: bank.bankname,
-          ownername: bank.ownername,
-          remark: deposit.remark || "-",
-          lastBalance: bank.currentbalance + deposit.amount,
-          currentBalance: bank.currentbalance,
-          processby: adminuser.username,
-          transactiontype: "reverted deposit",
-          amount: deposit.amount,
-          qrimage: bank.qrimage,
-          playerusername: user.username,
-          playerfullname: user.fullname,
-        });
-        await transactionLog.save();
-      }
+      const transactionLog = new BankTransactionLog({
+        bankName: bank.bankname,
+        ownername: bank.ownername,
+        bankAccount: bank.bankaccount,
+        remark: deposit.remark || "-",
+        lastBalance: bank.currentbalance + deposit.amount,
+        currentBalance: bank.currentbalance,
+        processby: adminuser.username,
+        transactiontype: "reverted deposit",
+        amount: deposit.amount,
+        qrimage: bank.qrimage,
+        playerusername: user.username,
+        playerfullname: user.fullname,
+      });
+      await transactionLog.save();
+
+      const depositTime = new Date(deposit.createdAt);
+      const timeBefore = new Date(depositTime.getTime() - 3000);
+      const timeAfter = new Date(depositTime.getTime() + 3000);
+
+      await LiveTransaction.findOneAndDelete({
+        type: "deposit",
+        username: user.username,
+        amount: deposit.amount,
+        time: {
+          $gte: timeBefore,
+          $lte: timeAfter,
+        },
+      });
 
       res.status(200).json({
         success: true,
@@ -2620,6 +3558,7 @@ router.post(
 router.post(
   "/admin/api/revertwithdraw/:withdrawId",
   authenticateAdminToken,
+  preventDuplicate((req) => `withdraw-${req.params.withdrawId}`),
   async (req, res) => {
     try {
       const { withdrawId } = req.params;
@@ -2697,13 +3636,27 @@ router.post(
         }
       }
 
-      user.wallet += withdraw.amount;
-      user.totalwithdraw -= withdraw.amount;
-      await user.save();
+      const updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        {
+          $inc: {
+            wallet: withdraw.amount,
+            totalwithdraw: -withdraw.amount,
+          },
+        },
+        { new: true }
+      );
 
-      bank.currentbalance += withdraw.amount;
-      bank.totalWithdrawals -= withdraw.amount;
-      await bank.save();
+      const updatedBank = await BankList.findByIdAndUpdate(
+        withdraw.withdrawbankid,
+        {
+          $inc: {
+            currentbalance: withdraw.amount,
+            totalWithdrawals: -withdraw.amount,
+          },
+        },
+        { new: true }
+      );
 
       withdraw.reverted = true;
       withdraw.status = "reverted";
@@ -2727,17 +3680,32 @@ router.post(
       const transactionLog = new BankTransactionLog({
         bankName: bank.bankname,
         ownername: bank.ownername,
+        bankAccount: bank.bankaccount,
         remark: withdraw.remark || "-",
         lastBalance: bank.currentbalance - withdraw.amount,
         currentBalance: bank.currentbalance,
         processby: adminuser.username,
-        transactiontype: "reverted deposit",
+        transactiontype: "reverted withdraw",
         amount: withdraw.amount,
         qrimage: bank.qrimage,
         playerusername: user.username,
         playerfullname: user.fullname,
       });
       await transactionLog.save();
+
+      const withdrawTime = new Date(withdraw.createdAt);
+      const timeBefore = new Date(withdrawTime.getTime() - 3000);
+      const timeAfter = new Date(withdrawTime.getTime() + 3000);
+
+      await LiveTransaction.findOneAndDelete({
+        type: "withdraw",
+        username: user.username,
+        amount: withdraw.amount,
+        time: {
+          $gte: timeBefore,
+          $lte: timeAfter,
+        },
+      });
 
       res.status(200).json({
         success: true,
@@ -2763,6 +3731,7 @@ router.post(
 router.post(
   "/admin/api/revertbonus/:bonusId",
   authenticateAdminToken,
+  preventDuplicate((req) => `bonus-${req.params.bonusId}`),
   async (req, res) => {
     try {
       const { bonusId } = req.params;
@@ -2836,20 +3805,54 @@ router.post(
         }
       }
 
-      user.wallet -= bonus.amount;
-      user.totalbonus -= bonus.amount;
+      const updateData = {
+        $inc: {
+          wallet: -bonus.amount,
+          totalbonus: -bonus.amount,
+        },
+      };
       if (bonus.isLuckySpin) {
-        user.luckySpinClaim = false;
+        updateData.$set = { luckySpinClaim: false };
       }
       if (bonus.isCheckinBonus) {
-        user.lastcheckinbonus = null;
+        updateData.$set = {
+          ...updateData.$set,
+          lastcheckinbonus: null,
+        };
       }
-      await user.save();
+
+      const updatedUser = await User.findByIdAndUpdate(user._id, updateData, {
+        new: true,
+      });
 
       bonus.reverted = true;
       bonus.status = "reverted";
       bonus.revertedProcessBy = adminuser.username;
       await bonus.save();
+
+      const promotionData = await promotion.findById(bonus.promotionId);
+      if (
+        promotionData &&
+        promotionData.allowedGameDatabaseNames &&
+        promotionData.allowedGameDatabaseNames.length > 0
+      ) {
+        const allKiosks = await Kiosk.find({}).select("databaseName name");
+        const currentGameLock = user.gameLock || {};
+        promotionData.allowedGameDatabaseNames.forEach((gameName) => {
+          const kiosk = allKiosks.find(
+            (k) => k.databaseName.toLowerCase() === gameName.toLowerCase()
+          );
+          if (kiosk) {
+            currentGameLock[kiosk.databaseName] = {
+              lock: true,
+              reason: "promotion_reverted",
+            };
+          }
+        });
+        await User.findByIdAndUpdate(user._id, {
+          $set: { gameLock: currentGameLock },
+        });
+      }
 
       const walletLog = await UserWalletLog.findOne({
         transactionid: bonus.transactionId,
@@ -3232,7 +4235,7 @@ router.post(
       const hashedPassword = await bcrypt.hash(password, salt);
       const newReferralCode = await generateUniqueReferralCode();
       const referralLink = generateReferralLink(newReferralCode);
-      const referralQrCode = await QRCode.toDataURL(referralLink);
+      const referralQrCode = await generateQRWithLogo(referralLink);
 
       let referralBy = null;
       if (referralCode) {
@@ -3258,6 +4261,7 @@ router.post(
         referralCode: newReferralCode,
         referralQrCode,
         viplevel: "Bronze",
+        gameId: await generateUniqueGameId(),
       });
 
       if (referralBy) {
@@ -3356,7 +4360,7 @@ router.get(
     try {
       const userId = req.params.userId;
       const user = await User.findById(userId).select(
-        " username totalturnover  fullname email phonenumber status viplevel bankAccounts wallet createdAt lastLogin lastLoginIp registerIp dob wallet withdrawlock rebate turnover winloss gamewallet rebate totaldeposit totalwithdraw lastdepositdate totalbonus gameStatus luckySpinCount remark referralCode referralBy duplicateIP gameStatus gameLock kiss918GameID kiss918GamePW pastKiss918GameID pastKiss918GamePW pussy888GameID pussy888GamePW pastPussy888GameID pastPussy888GamePW mega888GameID mega888GamePW pastMega888GameID pastMega888GamePW positionTaking"
+        " username totalturnover  fullname email phonenumber status viplevel bankAccounts wallet createdAt lastLogin lastLoginIp registerIp dob wallet withdrawlock rebate turnover winloss gamewallet rebate totaldeposit totalwithdraw lastdepositdate totalbonus gameStatus luckySpinCount remark referralCode referralBy duplicateIP gameStatus gameLock positionTaking gameId mega888GameID mega888GamePW pastMega888GameID pastMega888GamePW"
       );
       if (!user) {
         return res.status(200).json({
@@ -3414,6 +4418,20 @@ router.put(
         processedFullname = fullname.trim().replace(/\s+/g, " ").toLowerCase();
       }
 
+      const currentUser = await User.findById(userId);
+      if (!currentUser) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "User not found",
+            zh: "找不到用户",
+          },
+        });
+      }
+
+      const shouldUpdateLowestVip =
+        viplevel && viplevel !== currentUser.viplevel;
+
       const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
@@ -3423,6 +4441,7 @@ router.put(
             phonenumber: Number(phonenumber),
             dob,
             viplevel,
+            ...(shouldUpdateLowestVip && { lowestviplevel: viplevel }),
             luckySpinCount,
             totalturnover,
             positionTaking,
@@ -3979,9 +4998,23 @@ router.patch(
             });
           }
         }
-        user.wallet -= amount;
+
+        const updatedUser = await User.findByIdAndUpdate(
+          userId,
+          { $inc: { wallet: -amount } },
+          { new: true }
+        );
+
+        if (!updatedUser) {
+          return res.status(200).json({
+            success: false,
+            message: {
+              en: "Failed to update user balance",
+              zh: "更新用户余额失败",
+            },
+          });
+        }
       }
-      await user.save();
 
       const newCashOut = new UserWalletCashOut({
         transactionId: uuidv4(),
@@ -4198,6 +5231,7 @@ router.post("/api/updateSocialMedia", authenticateToken, async (req, res) => {
         message: {
           en: "User not found",
           zh: "找不到用户",
+          ms: "Pengguna tidak dijumpai",
         },
       });
     }
@@ -4217,6 +5251,7 @@ router.post("/api/updateSocialMedia", authenticateToken, async (req, res) => {
       message: {
         en: "Social media updated successfully",
         zh: "社交媒体更新成功",
+        ms: "Media sosial berjaya dikemas kini",
       },
     });
   } catch (error) {
@@ -4226,6 +5261,7 @@ router.post("/api/updateSocialMedia", authenticateToken, async (req, res) => {
       message: {
         en: "Internal server error",
         zh: "服务器内部错误",
+        ms: "Ralat pelayan dalaman",
       },
     });
   }
@@ -4772,14 +5808,32 @@ router.get(
         cashoutStats,
       ] = financialResults;
 
-      // Generic aggregation function for game turnover
+      const getUsernameMap = async (gameIds) => {
+        const upperCaseGameIds = gameIds
+          .filter((id) => id != null)
+          .map((id) => id.toUpperCase());
+
+        if (upperCaseGameIds.length === 0) return {};
+
+        const users = await User.find(
+          { gameId: { $in: upperCaseGameIds } },
+          { gameId: 1, username: 1, _id: 0 }
+        ).lean();
+
+        return users.reduce((map, user) => {
+          map[user.gameId.toLowerCase()] = user.username.toLowerCase();
+          return map;
+        }, {});
+      };
+
       const getAllUsersTurnover = async (
         model,
         matchConditions,
-        turnoverExpression = { $ifNull: ["$betamount", 0] }
+        turnoverExpression = {
+          $ifNull: [{ $ifNull: ["$validbetamount", "$betamount"] }, 0],
+        }
       ) => {
         try {
-          // Add date filter to match conditions
           const fullMatchConditions = {
             ...matchConditions,
             createdAt: dateFilter.createdAt,
@@ -4797,8 +5851,13 @@ router.get(
             },
           ]);
 
+          if (results.length === 0) return [];
+
+          const gameIds = results.map((item) => item._id);
+
+          const gameIdToUsername = await getUsernameMap(gameIds);
           return results.map((item) => ({
-            username: item._id,
+            username: gameIdToUsername[item._id] || item._id,
             turnover: Number(item.turnover.toFixed(2)),
           }));
         } catch (error) {
@@ -4862,115 +5921,151 @@ router.get(
       // Get today's data if needed
       if (needsTodayData) {
         const todayGamePromises = [
-          getAllUsersTurnover(SlotLivePPModal, {
-            refunded: false,
-            ended: true,
-          }),
-          getAllUsersTurnover(SlotLiveAGModal, {
+          // EpicWin
+          getAllUsersTurnover(SlotEpicWinModal, {
             cancel: { $ne: true },
             settle: true,
           }),
-          getAllUsersTurnover(SlotLiveGSCModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-          getAllUsersTurnover(
-            SlotJokerModal,
-            {
-              cancel: { $ne: true },
 
-              settle: true,
-            },
-            {
-              $add: [
-                { $ifNull: ["$betamount", 0] },
-                { $ifNull: ["$fishTurnover", 0] },
-              ],
-            }
-          ),
+          // Fachai
+          getAllUsersTurnover(SlotFachaiModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          getAllUsersTurnover(SlotLivePlayAceModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // Jili
           getAllUsersTurnover(SlotJiliModal, {
             cancel: { $ne: true },
-
             settle: true,
           }),
-          getAllUsersTurnover(SlotHabaneroModal, {
-            refund: { $ne: true },
 
-            settle: true,
-          }),
-          getAllUsersTurnover(SlotKiss918H5Modal, {
+          // YGR
+          getAllUsersTurnover(SlotYGRModal, {
             cancel: { $ne: true },
-
             settle: true,
           }),
+
+          // Joker
+          getAllUsersTurnover(SlotJokerModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          getAllUsersTurnover(SlotLiveMicroGamingModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // Funky
+          getAllUsersTurnover(SlotFunkyModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // TF Gaming
+          getAllUsersTurnover(EsportTfGamingModal, {
+            settle: true,
+            cancel: { $ne: true },
+          }),
+
+          // SA Gaming
+          getAllUsersTurnover(LiveSaGamingModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // Yeebet
+          getAllUsersTurnover(LiveYeebetModal, {
+            settle: true,
+            cancel: { $ne: true },
+          }),
+
+          // WE Casino
+          getAllUsersTurnover(LiveWeCasinoModal, {
+            settle: true,
+            cancel: { $ne: true },
+          }),
+
+          // CQ9 - Already included
           getAllUsersTurnover(SlotCQ9Modal, {
             cancel: { $ne: true },
             refund: { $ne: true },
             settle: true,
           }),
-          getAllUsersTurnover(SlotLive22Modal, {
-            cancel: { $ne: true },
 
+          // Habanero
+          getAllUsersTurnover(SlotHabaneroModal, {
+            refund: { $ne: true },
             settle: true,
           }),
-          getAllUsersTurnover(SlotLiveMicroGamingModal, {
-            cancel: { $ne: true },
 
+          // BNG
+          getAllUsersTurnover(SlotBNGModal, {
+            cancel: { $ne: true },
             settle: true,
           }),
-          getAllUsersTurnover(SlotUUSlotModal, {
-            cancel: { $ne: true },
 
-            settle: true,
-          }),
-          getAllUsersTurnover(LiveCT855Modal, {
+          getAllUsersTurnover(SlotPlayStarModal, {
             cancel: { $ne: true },
             settle: true,
           }),
-          getAllUsersTurnover(
-            PlaytechGameModal,
-            {
-              settle: true,
-              cancel: { $ne: true },
-            },
-            { $ifNull: ["$betAmount", 0] }
-          ),
+
+          getAllUsersTurnover(SlotVPowerModal, {
+            settle: true,
+          }),
+
           getAllUsersTurnover(SlotNextSpinModal, {
             cancel: { $ne: true },
             settle: true,
           }),
-          getAllUsersTurnover(SlotLFC888Modal, {
+
+          getAllUsersTurnover(SlotDCTGameModal, {
             cancel: { $ne: true },
             settle: true,
           }),
-          getAllUsersTurnover(SlotMega888H5Modal, {
+
+          getAllUsersTurnover(
+            SlotPlaytechModal,
+            {
+              settle: true,
+              cancel: { $ne: true },
+            },
+            { $ifNull: ["$betamount", 0] }
+          ),
+
+          // FastSpin
+          getAllUsersTurnover(SlotFastSpinModal, {
             cancel: { $ne: true },
             settle: true,
           }),
-          getAllUsersTurnover(LotteryAP95Modal, {}),
-          getAllUsersTurnover(slotGW99Modal, {
+
+          // Rich88
+          getAllUsersTurnover(SlotRich88Modal, {
+            cancel: { $ne: true },
             settle: true,
           }),
+
+          // BT Gaming
+          getAllUsersTurnover(SlotBTGamingModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // AceWin
+          getAllUsersTurnover(SlotAceWinModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // Spade Gaming
           getAllUsersTurnover(SlotSpadeGamingModal, {
             cancel: { $ne: true },
             settle: true,
-          }),
-          getAllUsersTurnover(SlotFachaiModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-          getAllUsersTurnover(LiveSaGamingModal, {
-            cancel: { $ne: true },
-
-            settle: true,
-          }),
-          getAllUsersTurnover(SlotHacksawModal, {
-            cancel: { $ne: true },
-
-            settle: true,
-          }),
-          getAllUsersTurnover(SportCMDModal, {
-            cancel: { $ne: true },
           }),
         ];
 
@@ -5369,6 +6464,8 @@ router.post(
       )}\nRescue Bonus (5%): $${rescueBonusAmount}`;
 
       const transactionId = uuidv4();
+      const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+      const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
       const NewBonusTransaction = new Bonus({
         transactionId: transactionId,
         userId: userId,
@@ -5385,6 +6482,7 @@ router.post(
         promotionnameEN: promotiondata.maintitleEN,
         promotionId: promotionId,
         processtime: "00:00:00",
+        isNewCycle: isNewCycle,
       });
       await NewBonusTransaction.save();
       const walletLog = new UserWalletLog({
@@ -5580,5 +6678,79 @@ router.get("/api/verify-magic-link/:token", async (req, res) => {
   }
 });
 
+// Get Live Transaction
+router.get("/api/transactions/list", async (req, res) => {
+  try {
+    const deposits = await LiveTransaction.find({ type: "deposit" })
+      .sort({ time: -1 })
+      .limit(5)
+      .select("username amount time");
+    const withdraws = await LiveTransaction.find({ type: "withdraw" })
+      .sort({ time: -1 })
+      .limit(5)
+      .select("username amount time");
+    res.json({
+      success: true,
+      data: {
+        deposits,
+        withdraws,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: {
+        en: "Error fetching transaction list",
+        zh: "获取交易列表时出错",
+      },
+      error: error.message,
+    });
+  }
+});
+
+// Get User Game Lock Status
+router.get("/api/user/game-locks", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId).select("gameLock");
+    if (!user) {
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: "User not found",
+          zh: "找不到用户",
+          ms: "Pengguna tidak dijumpai",
+        },
+      });
+    }
+    const lockedGames = [];
+    if (user.gameLock) {
+      Object.keys(user.gameLock).forEach((gameName) => {
+        if (user.gameLock[gameName]?.lock === true) {
+          lockedGames.push(gameName);
+        }
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: {
+        gameLock: user.gameLock || {},
+        lockedGames: lockedGames,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching user game locks:", error);
+    res.status(500).json({
+      success: false,
+      message: {
+        en: "Internal server error",
+        zh: "服务器内部错误",
+        ms: "Ralat pelayan dalaman",
+      },
+    });
+  }
+});
+
 module.exports = router;
 module.exports.checkAndUpdateVIPLevel = checkAndUpdateVIPLevel;
+module.exports.updateUserGameLocks = updateUserGameLocks;

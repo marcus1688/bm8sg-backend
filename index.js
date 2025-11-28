@@ -67,57 +67,56 @@ const SportsRouter = require("./routes/sports");
 const AgentPTRouter = require("./routes/agentpt");
 const WeeklyTurnoverRouter = require("./routes/weeklyturnover");
 const LuckyDrawRouter = require("./routes/luckydraw");
+const MissionRouter = require("./routes/mission");
+
+const slotEpicWinRouter = require("./routes/GAMEAPI/slot_epicwin");
+const slotFachaiRouter = require("./routes/GAMEAPI/slot_fachai");
+const slotLivePlayaceRouter = require("./routes/GAMEAPI/slot_liveplayace");
+const slotBNGRouter = require("./routes/GAMEAPI/slot_bng");
+const slotDCTGameRouter = require("./routes/GAMEAPI/slot_dctgame");
+const slotJiliRouter = require("./routes/GAMEAPI/slot_jili");
+const slotFastspinRouter = require("./routes/GAMEAPI/slot_fastspin");
+const slotYesGetRichRouter = require("./routes/GAMEAPI/slot_yesgetrich");
+const slotJokerRouter = require("./routes/GAMEAPI/slot_joker");
+const slotLiveMicroGamingRouter = require("./routes/GAMEAPI/slot_livemicrogaming");
+const slotFunkyRouter = require("./routes/GAMEAPI/slot_funky");
+const slotHabaneroRouter = require("./routes/GAMEAPI/slot_habanero");
+const slotCQ9Router = require("./routes/GAMEAPI/slot_cq9");
+const slotBTGamingRouter = require("./routes/GAMEAPI/slot_btgaming");
+const slotNextSpinRouter = require("./routes/GAMEAPI/slot_nextspin");
+const slotPlayStarRouter = require("./routes/GAMEAPI/slot_playstar");
+const slotLivePlaytechRouter = require("./routes/GAMEAPI/slot_liveplaytech");
+const slotVpowerRouter = require("./routes/GAMEAPI/slot_vpower");
+const slotRich88Router = require("./routes/GAMEAPI/slot_rich88");
+const slotRSGRouter = require("./routes/GAMEAPI/slot_rsg");
+const slotAceWinRouter = require("./routes/GAMEAPI/slot_acewin");
+const slotSpadeGamingRouter = require("./routes/GAMEAPI/slot_spadegaming");
+const slotMega888Router = require("./routes/GAMEAPI/slot_mega888");
+const slotMega888LoginRouter = require("./routes/GAMEAPI/slot_mega888login");
+
+const sportSBOBETRouter = require("./routes/GAMEAPI/sport_sbobet");
+const sportM9BetRouter = require("./routes/GAMEAPI/sports_m9bet");
+
+const esportTFGamingRouter = require("./routes/GAMEAPI/esport_tfgaming");
+
+const liveSaGamingRouter = require("./routes/GAMEAPI/live_sagaming");
+const liveYeebetRouter = require("./routes/GAMEAPI/live_yeebet");
+const liveWECasinoRouter = require("./routes/GAMEAPI/live_wecasino");
+const liveOnCasinoRouter = require("./routes/GAMEAPI/live_oncasino");
+const liveAllBetRouter = require("./routes/GAMEAPI/live_allbet");
+
+const paymentGatewaySKL99Router = require("./routes/PaymentGateway/skl99");
+const paymentGatewaySurePayRouter = require("./routes/PaymentGateway/surepay");
+const paymentGatewayFPayRouter = require("./routes/PaymentGateway/fpay");
+
+const importGameListRouter = require("./routes/GAMEAPI/0_ImportGameList");
+const gameStatusRouter = require("./routes/GAMEAPI/0_GameStatus");
+const allGameFunctionRouter = require("./routes/GAMEAPI/0_GameFunction");
+const gameTotalTurnoverRouter = require("./routes/GAMEAPI/0_GameTotalTurnover");
+const transferGameFunctionRouter = require("./routes/GAMEAPI/0_CombinedGameFunction");
 
 const adminListRouter = require("./routes/adminlist");
 const notificationRouter = require("./routes/notification");
-const paymentgatewayRouter = require("./routes/payloh");
-const allImportGameListRouter = require("./routes/GAMEAPI/0_ImportGameList");
-
-const slotPlaytechRouter = require("./routes/GAMEAPI/slotPLAYTECH");
-const slotHabaneroRouter = require("./routes/GAMEAPI/slothabanero");
-const slotJiliRouter = require("./routes/GAMEAPI/slotjili");
-const slotKiss918H5Router = require("./routes/GAMEAPI/slotkissh5");
-const slotLive22Router = require("./routes/GAMEAPI/slotlive22ne");
-const slotCQ9Router = require("./routes/GAMEAPI/slotcq9");
-const slotLionKingRouter = require("./routes/GAMEAPI/slotlionking");
-const slotLFC888Router = require("./routes/GAMEAPI/slotlfc888");
-const slotNextSpinRouter = require("./routes/GAMEAPI/slotnextspin");
-const slotUUSlotRouter = require("./routes/GAMEAPI/slotuuslots");
-const slotJokerRouter = require("./routes/GAMEAPI/slot_joker");
-const slotMegaH5Router = require("./routes/GAMEAPI/slotmega888h5");
-const slotGw99Router = require("./routes/GAMEAPI/slot_99gw");
-const slotSpadeGamingRouter = require("./routes/GAMEAPI/slotspadegaming");
-const slotFachaiRouter = require("./routes/GAMEAPI/slotfachai");
-const slotHacksawRouter = require("./routes/GAMEAPI/slothacksaw.js");
-const slotLiveMicroGamingRouter = require("./routes/GAMEAPI/slot_livemicrogaming.js");
-
-const liveCT855Router = require("./routes/GAMEAPI/liveCT855");
-const liveCT855SeamlessRouter = require("./routes/GAMEAPI/liveCT855Seamless");
-const liveSaGamingRouter = require("./routes/GAMEAPI/liveSaGaming.js");
-
-const slotLivePPRouter = require("./routes/GAMEAPI/slot_livepp");
-const slotLiveAGRouter = require("./routes/GAMEAPI/slot_liveasiagaming");
-
-const sportCMD368Router = require("./routes/GAMEAPI/sportcmd.js");
-// const sportSabaRouter = require("./routes/GAMEAPI/sportsaba.js");
-
-const allGSIRouter = require("./routes/GAMEAPI/allGSI");
-
-const GameFunctionRouter = require("./routes/GAMEAPI/0_GameFunction");
-const GameTotalTurnoverRouter = require("./routes/GAMEAPI/0_GameTotalTurnover");
-const OC7GameRouter = require("./routes/GAMEAPI/0_OC7Function");
-const GameStatusRouter = require("./routes/GAMEAPI/0_GameStatus");
-
-const { fetchAcceptedBetsCron } = require("./routes/GAMEAPI/lotteryAlipay");
-const { startGW99Cron } = require("./routes/GAMEAPI/slot_99gw.js");
-const { startLionKingCron } = require("./routes/GAMEAPI/slotlionking.js");
-
-const lotteryAlipayRouter = require("./routes/GAMEAPI/lotteryAlipay");
-
-const dgPayRouter = require("./routes/PaymentGateway/dgpay");
-const truePayRouter = require("./routes/PaymentGateway/truepay");
-const luxePayRouter = require("./routes/PaymentGateway/luxepay");
-const skl99Router = require("./routes/PaymentGateway/skl99");
 
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -127,7 +126,6 @@ const Withdraw = require("./models/withdraw.model");
 const { User } = require("./models/users.model");
 const { adminUser, adminLog } = require("./models/adminuser.model");
 const { Mail } = require("./models/mail.model");
-const paylohModal = require("./models/payloh.model");
 const email = require("./models/email.model");
 const { updateKioskBalance } = require("./services/kioskBalanceService");
 const kioskbalance = require("./models/kioskbalance.model");
@@ -144,11 +142,9 @@ const moment = require("moment");
 const ipRangeCheck = require("ip-range-check");
 const server = http.createServer(app);
 const axios = require("axios");
+const JSONbig = require("json-bigint")({ storeAsString: true });
 const wss = new WebSocket.Server({ noServer: true });
 const sgMail = require("@sendgrid/mail");
-
-server.keepAliveTimeout = 85000;
-server.headersTimeout = 86000;
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 let connectedUsers = [];
@@ -158,14 +154,22 @@ const helmet = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
 const xss = require("xss-clean");
 
+server.keepAliveTimeout = 85000;
+server.headersTimeout = 86000;
+
+global.AGENT_COMMISSION_PROMOTION_ID = "68fabc976cfe394ec64f37e2";
+global.REBATE_PROMOTION_ID = "68fb42b060c7d4ae7ab6aac9";
+global.LUCKY_SPIN_PROMOTION_ID = "691ad66687e4b0f46eaf1d3d";
+global.DAILY_CHECK_IN_PROMOTION_ID = "691b040987e4b0f46eaf1e28";
+global.PROMO_CODE_PROMOTION_ID = "691b1e7387e4b0f46eaf1e80";
+
 const allowedOrigins = [
   "https://mysteryclub88.com",
   "https://www.mysteryclub88.com",
-  "https://www.egm8my.vip",
-  "https://www.egm8sg.vip",
-  "https://www.egm8my.com",
-  "https://egm8my-frontend.vercel.app",
-  "https://egm8sg-frontend.vercel.app",
+  "https://www.bm8my.vip",
+  "https://www.bm8sg.vip",
+  "https://www.bm8my.com",
+  "https://www.bm8sg.com",
   "capacitor://localhost",
   "ionic://localhost",
   "file://",
@@ -197,19 +201,9 @@ app.use(
   })
 );
 
-app.use(liveCT855SeamlessRouter);
+app.use(slotMega888LoginRouter);
 
-// Apply express.json() only to non-CT855 routes
-app.use((req, res, next) => {
-  // Skip body parsing for CT855 routes - they handle it manually
-  if (req.originalUrl && req.originalUrl.includes("/api/ct855/")) {
-    console.log(
-      `🎯 CT855 Request: ${req.method} ${req.originalUrl} - Skipping body parser`
-    );
-    return next();
-  }
-
-  // Apply express.json() to all other routes
+app.use(
   express.json({
     limit: "10mb",
     verify: (req, res, buf) => {
@@ -220,28 +214,14 @@ app.use((req, res, next) => {
         error.status = 400;
         throw error;
       }
+      req.rawBody = buf;
     },
-  })(req, res, next);
-});
+  })
+);
 
-// app.use(
-//   express.json({
-//     limit: "10mb",
-//     verify: (req, res, buf) => {
-//       try {
-//         JSON.parse(buf);
-//       } catch (e) {
-//         const error = new Error("Invalid JSON");
-//         error.status = 400;
-//         throw error;
-//       }
-//     },
-//   })
-// );
-
-// app.use(liveCT855SeamlessRouter);
-
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(
+  express.urlencoded({ extended: true, limit: "10mb", parameterLimit: 100000 })
+);
 app.use(cookieParser());
 app.use(mongoSanitize());
 app.use((req, res, next) => {
@@ -831,6 +811,17 @@ app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
+app.use("/api/vpower", (req, res, next) => {
+  if (req.rawBody && req.is("application/json")) {
+    try {
+      req.body = JSONbig.parse(req.rawBody.toString("utf8"));
+    } catch (e) {
+      return res.status(400).json({ message: "Invalid JSON" });
+    }
+  }
+  next();
+});
+
 app.use(express.static("public"));
 app.use(usersRouter);
 app.use(depositRouter);
@@ -877,55 +868,93 @@ app.use(SportsRouter);
 app.use(AgentPTRouter);
 app.use(WeeklyTurnoverRouter);
 app.use(LuckyDrawRouter);
+app.use(MissionRouter);
+
+app.use(slotEpicWinRouter);
+app.use(slotFachaiRouter);
+app.use(slotLivePlayaceRouter);
+app.use(slotBNGRouter);
+app.use(slotDCTGameRouter);
+app.use(slotJiliRouter);
+app.use(slotFastspinRouter);
+app.use(slotYesGetRichRouter);
+app.use(slotJokerRouter);
+app.use(slotLiveMicroGamingRouter);
+app.use(slotFunkyRouter);
+app.use(slotHabaneroRouter);
+app.use(slotCQ9Router);
+app.use(slotBTGamingRouter);
+app.use(slotNextSpinRouter);
+app.use(slotPlayStarRouter);
+app.use(slotLivePlaytechRouter);
+app.use(slotVpowerRouter);
+app.use(slotRich88Router);
+app.use(slotRSGRouter);
+app.use(slotAceWinRouter);
+app.use(slotSpadeGamingRouter);
+app.use(slotMega888Router);
+
+app.use(sportSBOBETRouter);
+app.use(sportM9BetRouter);
+
+app.use(esportTFGamingRouter);
+
+app.use(liveSaGamingRouter);
+app.use(liveYeebetRouter);
+app.use(liveWECasinoRouter);
+app.use(liveOnCasinoRouter);
+app.use(liveAllBetRouter);
+
+app.use(paymentGatewaySKL99Router);
+app.use(paymentGatewaySurePayRouter);
+app.use(paymentGatewayFPayRouter);
+
+app.use(importGameListRouter);
+app.use(gameStatusRouter);
+app.use(allGameFunctionRouter);
+app.use(gameTotalTurnoverRouter);
+app.use(transferGameFunctionRouter);
 
 app.use(adminListRouter);
 app.use(notificationRouter);
 
 app.use(myPromotionRouter);
-app.use(paymentgatewayRouter);
 
-app.use(allImportGameListRouter);
-
-app.use(slotPlaytechRouter);
-app.use(slotLive22Router);
-app.use(slotHabaneroRouter);
-app.use(slotJiliRouter);
-app.use(slotKiss918H5Router);
-app.use(slotCQ9Router);
-app.use(slotLionKingRouter);
-app.use(slotLFC888Router);
-app.use(slotNextSpinRouter);
-app.use(slotUUSlotRouter);
-app.use(slotJokerRouter);
-app.use(slotMegaH5Router);
-app.use(slotGw99Router);
-app.use(slotSpadeGamingRouter);
-app.use(slotFachaiRouter);
-app.use(slotHacksawRouter);
-app.use(slotLiveMicroGamingRouter);
-
-app.use(liveCT855Router);
-app.use(liveSaGamingRouter);
-
-app.use(slotLivePPRouter);
-app.use(slotLiveAGRouter);
-
-app.use(allGSIRouter);
-
-app.use(lotteryAlipayRouter);
-
-app.use(dgPayRouter);
-app.use(truePayRouter);
-app.use(luxePayRouter);
-app.use(skl99Router);
-
-app.use(GameFunctionRouter);
-app.use(GameTotalTurnoverRouter);
-app.use(OC7GameRouter);
-app.use(GameStatusRouter);
-
-app.use(sportCMD368Router);
 // app.use(sportSabaRouter);
+
+if (process.env.NODE_ENV !== "development") {
+  cron.schedule("*/15 * * * *", async () => {
+    try {
+      const now = new Date();
+
+      // Clean up both BNG and YGR tokens in one update
+      const result = await User.updateMany(
+        {
+          $or: [
+            { "bngGameTokens.expiresAt": { $lt: now } },
+            { "ygrGameTokens.expiresAt": { $lt: now } },
+          ],
+        },
+        {
+          $pull: {
+            bngGameTokens: { expiresAt: { $lt: now } },
+            ygrGameTokens: { expiresAt: { $lt: now } },
+          },
+        }
+      );
+
+      if (result.modifiedCount > 0) {
+        console.log(
+          `[Token Cleanup] Removed expired BNG and YGR tokens from ${
+            result.modifiedCount
+          } users at ${now.toISOString()}`
+        );
+      }
+    } catch (error) {
+      console.error("[Token Cleanup] Error:", error);
+    }
+  });
+}
 
 // cron.schedule(
 //   "0 0 * * *", // runs at 00:00 (12 AM) every day
@@ -952,31 +981,31 @@ app.use(sportCMD368Router);
 //   }
 // );
 
-// cron.schedule(
-//   "5 0 * * *",
-//   async () => {
-//     try {
-//       console.log("began proces getallturnover forrebate");
-//       const response = await axios.post(
-//         `${process.env.BASE_URL}admin/api/getAllTurnoverForRebate`,
-//         {
-//           date: "yesterday",
-//         }
-//       );
-//       if (response.data.success) {
-//         console.log("Turnover data fetched successfully:", {
-//           price: response.data.data,
-//           time: moment().format("YYYY-MM-DD HH:mm:ss"),
-//         });
-//       }
-//     } catch (error) {
-//       console.error("Error in getallturnover:", error.message);
-//     }
-//   },
-//   {
-//     timezone: "Asia/Shanghai",
-//   }
-// );
+cron.schedule(
+  "5 0 * * *",
+  async () => {
+    try {
+      console.log("began proces getallturnover forrebate");
+      const response = await axios.post(
+        `${process.env.BASE_URL}admin/api/getAllTurnoverForRebate`,
+        {
+          date: "yesterday",
+        }
+      );
+      if (response.data.success) {
+        console.log("Turnover data fetched successfully:", {
+          price: response.data.data,
+          time: moment().format("YYYY-MM-DD HH:mm:ss"),
+        });
+      }
+    } catch (error) {
+      console.error("Error in getallturnover:", error.message);
+    }
+  },
+  {
+    timezone: "Asia/Shanghai",
+  }
+);
 
 // if (process.env.NODE_ENV !== "development") {
 //   fetchAcceptedBetsCron();

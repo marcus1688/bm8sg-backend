@@ -59,10 +59,6 @@ const slotNextspinSchema = new mongoose.Schema(
     gameCode: {
       type: String,
     },
-    claimed: {
-      type: Boolean,
-      default: false,
-    },
   },
   {
     timestamps: {

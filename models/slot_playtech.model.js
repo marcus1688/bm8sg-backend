@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const moment = require("moment");
 
-const PlaytechGameSchema = new mongoose.Schema(
+const slotplaytechSchema = new mongoose.Schema(
   {
     username: {
       type: String,
@@ -36,7 +36,7 @@ const PlaytechGameSchema = new mongoose.Schema(
     externalBonusTransactionCode: {
       type: String,
     },
-    betAmount: {
+    betamount: {
       type: Number,
     },
     settleamount: {
@@ -75,10 +75,6 @@ const PlaytechGameSchema = new mongoose.Schema(
     freeSpinValue: {
       type: Number,
     },
-    claimed: {
-      type: Boolean,
-      default: false,
-    },
     gametype: {
       type: String,
     },
@@ -90,8 +86,11 @@ const PlaytechGameSchema = new mongoose.Schema(
   }
 );
 
-PlaytechGameSchema.index({ createdAt: -1 }, { expireAfterSeconds: 172800 });
+slotplaytechSchema.index({ createdAt: -1 }, { expireAfterSeconds: 172800 });
 
-const PlaytechGameModal = mongoose.model("PlaytechGame", PlaytechGameSchema);
+const SlotPlaytechModal = mongoose.model(
+  "SlotPlaytechModal",
+  slotplaytechSchema
+);
 
-module.exports = PlaytechGameModal;
+module.exports = SlotPlaytechModal;

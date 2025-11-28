@@ -10,6 +10,7 @@ const { v4: uuidv4 } = require("uuid");
 const UserWalletLog = require("../models/userwalletlog.model");
 const Promotion = require("../models/promotion.model");
 const vip = require("../models/vip.model");
+const { checkSportPendingMatch } = require("../helpers/turnoverHelper");
 const {
   checkGW99Balance,
   checkAlipayBalance,
@@ -83,10 +84,39 @@ router.post(
           },
         });
       }
+
       let bonusAmount;
+      let bonusPercentage = promotion.bonuspercentage;
+
+      if (
+        promotion.maintitleEN === "Unlimited Bonus" ||
+        promotion.maintitle === "无限存款"
+      ) {
+        const vipSettings = await vip.findOne();
+
+        if (vipSettings && user.viplevel) {
+          const vipLevelData = vipSettings.vipLevels.find(
+            (level) => level.name === user.viplevel.toString()
+          );
+
+          if (
+            vipLevelData &&
+            vipLevelData.benefits.has("Unlimited Deposit Bonus")
+          ) {
+            const unlimitedBonusValue = vipLevelData.benefits.get(
+              "Unlimited Deposit Bonus"
+            );
+            bonusPercentage = parseFloat(unlimitedBonusValue) || 0;
+          } else {
+            bonusPercentage = 0;
+          }
+        } else {
+          bonusPercentage = 0;
+        }
+      }
+
       if (promotion.claimtype === "Percentage") {
-        bonusAmount =
-          (depositAmount * parseFloat(promotion.bonuspercentage)) / 100;
+        bonusAmount = (depositAmount * parseFloat(bonusPercentage)) / 100;
         if (promotion.maxbonus > 0 && bonusAmount > promotion.maxbonus) {
           bonusAmount = promotion.maxbonus;
         }
@@ -104,6 +134,7 @@ router.post(
           },
         });
       }
+
       const transactionId = uuidv4();
 
       const [GW99Result, AlipayResult, LionKingResult] = await Promise.all([
@@ -134,7 +165,6 @@ router.post(
         console.error("GW99 balance check error:", GW99Result);
         balanceFetchErrors.gw99 = {
           error: GW99Result.error || "Failed to fetch balance",
-          // timestamp: new Date().toISOString(),
         };
       }
 
@@ -144,7 +174,6 @@ router.post(
         console.error("Alipay balance check error:", AlipayResult);
         balanceFetchErrors.alipay = {
           error: AlipayResult.error || "Failed to fetch balance",
-          // timestamp: new Date().toISOString(),
         };
       }
 
@@ -154,12 +183,12 @@ router.post(
         console.error("LionKing balance check error:", LionKingResult);
         balanceFetchErrors.lionking = {
           error: LionKingResult.error || "Failed to fetch balance",
-          // timestamp: new Date().toISOString(),
         };
       }
 
       const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
-
+      const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+      const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
       const NewBonusTransaction = new Bonus({
         transactionId: transactionId,
         userId: userId,
@@ -177,6 +206,7 @@ router.post(
         promotionId: promotionId,
         depositId,
         duplicateIP: user.duplicateIP,
+        isNewCycle: isNewCycle,
       });
       await NewBonusTransaction.save();
       const walletLog = new UserWalletLog({
@@ -337,7 +367,8 @@ router.post(
       }
 
       const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
-
+      const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+      const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
       const NewBonusTransaction = new Bonus({
         transactionId: transactionId,
         userId: userid,
@@ -355,6 +386,7 @@ router.post(
         promotionId: promotion._id,
         depositId,
         duplicateIP: user.duplicateIP,
+        isNewCycle: isNewCycle,
       });
       await NewBonusTransaction.save();
       const walletLog = new UserWalletLog({
@@ -503,6 +535,8 @@ router.post("/admin/api/bonus", authenticateAdminToken, async (req, res) => {
     }
 
     const transactionId = uuidv4();
+    const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+    const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
     const NewBonusTransaction = new Bonus({
       transactionId: transactionId,
       userId: userid,
@@ -520,6 +554,7 @@ router.post("/admin/api/bonus", authenticateAdminToken, async (req, res) => {
       promotionId: promotionData._id,
       duplicateIP: user.duplicateIP,
       duplicateBank: user.duplicateBank,
+      isNewCycle: isNewCycle,
     });
     await NewBonusTransaction.save();
 

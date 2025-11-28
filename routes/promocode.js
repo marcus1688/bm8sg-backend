@@ -2,10 +2,17 @@ const express = require("express");
 const router = express.Router();
 const PromoCode = require("../models/promocode.model");
 const PromoClaim = require("../models/promocodeclaim.model");
+const Promotion = require("../models/promotion.model");
 const { User } = require("../models/users.model");
 const { authenticateToken } = require("../auth/auth");
 const { authenticateAdminToken } = require("../auth/adminAuth");
 const moment = require("moment");
+const { v4: uuidv4 } = require("uuid");
+const Bonus = require("../models/bonus.model");
+const UserWalletLog = require("../models/userwalletlog.model");
+const { updateKioskBalance } = require("../services/kioskBalanceService");
+const kioskbalance = require("../models/kioskbalance.model");
+const Kiosk = require("../models/kiosk.model");
 
 // Generate random code
 function generatePromoCode(length = 8) {
@@ -28,28 +35,34 @@ router.post("/api/promocodes/claim", authenticateToken, async (req, res) => {
         message: {
           en: "User not found, please contact customer service",
           zh: "找不到用户，请联系客服",
+          ms: "Pengguna tidak dijumpai, sila hubungi khidmat pelanggan",
         },
       });
     }
+
     const promoCode = await PromoCode.findOne({
       code: req.body.code,
       isActive: true,
     });
+
     if (!promoCode) {
       return res.status(200).json({
         success: false,
         message: {
           en: "Invalid promo code",
           zh: "无效的优惠码",
+          ms: "Kod promosi tidak sah",
         },
       });
     }
+
     if (promoCode.claimedCount >= promoCode.claimLimit) {
       return res.status(200).json({
         success: false,
         message: {
           en: "Promo code has reached claim limit",
           zh: "优惠码已达到使用上限",
+          ms: "Kod promosi telah mencapai had tuntutan",
         },
       });
     }
@@ -65,46 +78,144 @@ router.post("/api/promocodes/claim", authenticateToken, async (req, res) => {
         message: {
           en: "You have already claimed this code",
           zh: "您已经使用过此优惠码",
+          ms: "Anda telah menuntut kod ini",
         },
       });
     }
 
-    // Create claim record
+    const promotion = await Promotion.findById(global.PROMO_CODE_PROMOTION_ID);
+    if (!promotion) {
+      console.error("Promo code promotion not found");
+    }
+
+    const transactionId = uuidv4();
+    let newWalletAmount = user.wallet;
+    let newLuckySpinPoints = user.luckySpinPoints || 0;
+
+    if (promoCode.rewardType === "luckySpinPoints") {
+      newLuckySpinPoints += promoCode.amount;
+    } else {
+      newWalletAmount += promoCode.amount;
+    }
+
     const claim = new PromoClaim({
       userId: req.user.userId,
       username: user.username,
       promoCodeId: promoCode._id,
       code: promoCode.code,
       amount: promoCode.amount,
+      rewardType: promoCode.rewardType,
+      transactionId: transactionId,
     });
-    await claim.save();
 
-    // Update promo code claimed count
+    const bonus = new Bonus({
+      transactionId: transactionId,
+      userId: user._id,
+      username: user.username,
+      fullname: user.fullname,
+      transactionType: "bonus",
+      processBy: "System",
+      amount: promoCode.amount,
+      walletamount: newWalletAmount,
+      status: "approved",
+      method: "auto",
+      remark: `Promo Code: ${promoCode.code}${
+        promoCode.rewardType === "luckySpinPoints" ? " (Lucky Spin Points)" : ""
+      }`,
+      promotionname: promotion?.maintitle || "优惠码",
+      promotionnameEN: promotion?.maintitleEN || "Promo Code",
+      promotionId: global.PROMO_CODE_PROMOTION_ID,
+      processtime: "00:00:00",
+    });
+
+    const walletLog = new UserWalletLog({
+      userId: user._id,
+      transactionid: transactionId,
+      transactiontime: new Date(),
+      transactiontype: "bonus",
+      amount: promoCode.amount,
+      status: "approved",
+      promotionnameEN: "Promo Code",
+      promotionnameCN: "优惠码",
+    });
+
     promoCode.claimedCount += 1;
     if (promoCode.claimedCount >= promoCode.claimLimit) {
       promoCode.isActive = false;
     }
-    await promoCode.save();
 
-    // Update user wallet
-    await User.findByIdAndUpdate(req.user.userId, {
-      $inc: { wallet: promoCode.amount },
-    });
+    if (promoCode.rewardType === "wallet") {
+      const kioskSettings = await kioskbalance.findOne({});
+      if (kioskSettings && kioskSettings.status) {
+        const kioskResult = await updateKioskBalance(
+          "subtract",
+          promoCode.amount,
+          {
+            username: user.username,
+            transactionType: "promo code claim",
+            remark: `Promo code claim: ${promoCode.code}`,
+            processBy: "System",
+          }
+        );
+        if (!kioskResult.success) {
+          return res.status(200).json({
+            success: false,
+            message: {
+              en: "Failed to update kiosk balance",
+              zh: "更新Kiosk余额失败",
+              ms: "Gagal mengemas kini baki kiosk",
+            },
+          });
+        }
+      }
+    }
+
+    const updateData =
+      promoCode.rewardType === "luckySpinPoints"
+        ? { $inc: { luckySpinPoints: promoCode.amount } }
+        : { $inc: { wallet: promoCode.amount } };
+
+    await Promise.all([
+      claim.save(),
+      bonus.save(),
+      walletLog.save(),
+      promoCode.save(),
+      User.findByIdAndUpdate(req.user.userId, updateData),
+    ]);
 
     res.status(200).json({
       success: true,
-      data: { amount: promoCode.amount },
+      data: {
+        amount: promoCode.amount,
+        rewardType: promoCode.rewardType,
+        newBalance:
+          promoCode.rewardType === "wallet"
+            ? newWalletAmount
+            : newLuckySpinPoints,
+      },
       message: {
-        en: `Successfully claimed$${promoCode.amount} credits!`,
-        zh: `成功领取$${promoCode.amount}！`,
+        en:
+          promoCode.rewardType === "luckySpinPoints"
+            ? `Successfully claimed ${promoCode.amount} Lucky Spin Points!`
+            : `Successfully claimed $${promoCode.amount} credits!`,
+        zh:
+          promoCode.rewardType === "luckySpinPoints"
+            ? `成功领取 ${promoCode.amount} 幸运转盘积分！`
+            : `成功领取 $${promoCode.amount}！`,
+        ms:
+          promoCode.rewardType === "luckySpinPoints"
+            ? `Berjaya menuntut ${promoCode.amount} Lucky Spin Points!`
+            : `Berjaya menuntut $${promoCode.amount} kredit!`,
       },
     });
   } catch (error) {
+    console.error("Promo code claim error:", error);
     res.status(500).json({
       success: false,
       message: {
         en: "Failed to claim promo code",
         zh: "领取优惠码失败",
+        ms: "Gagal menuntut kod promosi",
       },
     });
   }
@@ -133,6 +244,7 @@ router.post(
         code,
         amount: req.body.amount,
         claimLimit: req.body.claimLimit,
+        rewardType: req.body.rewardType || "wallet",
       });
       await promoCode.save();
       res.status(200).json({
@@ -202,7 +314,7 @@ router.put(
       const { amount, claimLimit } = req.body;
       const promoCode = await PromoCode.findByIdAndUpdate(
         req.params.id,
-        { amount, claimLimit },
+        { amount, claimLimit, rewardType },
         { new: true }
       );
       if (!promoCode) {

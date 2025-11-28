@@ -105,16 +105,19 @@ const dailyGameAmountsSchema = new mongoose.Schema(
 
 const userSchema = new mongoose.Schema(
   {
-    customerId: String,
-    userServerId: {
+    gameId: String,
+    email: {
+      type: String,
+      sparse: true,
+    },
+    isPhoneVerified: { type: Boolean, default: false },
+    isEmailVerified: { type: Boolean, default: false },
+    googleId: {
       type: String,
       unique: true,
       sparse: true,
     },
-    evolutionUserId: Number,
-    email: String,
-    isPhoneVerified: { type: Boolean, default: false },
-    isEmailVerified: { type: Boolean, default: false },
+    telegramId: { type: String, unique: true, sparse: true },
     verificationToken: String,
     verificationTokenExpires: { type: Date },
     fullname: { type: String, required: true },
@@ -165,9 +168,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "-",
     },
+
     registerIp: {
       type: String,
       default: "-",
+    },
+    turnoverResetAt: {
+      type: Date,
+      default: null,
     },
     referrals: [
       {
@@ -186,9 +194,8 @@ const userSchema = new mongoose.Schema(
       default: "Bronze",
       required: true,
     },
-    telegramId: {
+    lowestviplevel: {
       type: String,
-      default: null,
     },
     facebookId: {
       type: String,
@@ -289,40 +296,58 @@ const userSchema = new mongoose.Schema(
     lastAdminAccess: { type: Date, default: null },
     lastAdminAccessBy: String,
     gameLock: {
-      // rcb988: { type: gameLockSchema, default: () => ({}) },
-      // sexybcrt: { type: gameLockSchema, default: () => ({}) },
-      // wmcasino: { type: gameLockSchema, default: () => ({}) },
-      cmd368: { type: gameLockSchema, default: () => ({}) },
-      ct855: { type: gameLockSchema, default: () => ({}) },
-      mega888h5: { type: gameLockSchema, default: () => ({}) },
-      jili: { type: gameLockSchema, default: () => ({}) },
-      nextspin: { type: gameLockSchema, default: () => ({}) },
-      joker: { type: gameLockSchema, default: () => ({}) },
-      asiagaming: { type: gameLockSchema, default: () => ({}) },
-      uuslot: { type: gameLockSchema, default: () => ({}) },
-      live22: { type: gameLockSchema, default: () => ({}) },
-      lfc888: { type: gameLockSchema, default: () => ({}) },
-      playtech: { type: gameLockSchema, default: () => ({}) },
-      gsi: { type: gameLockSchema, default: () => ({}) },
-      kiss918h5: { type: gameLockSchema, default: () => ({}) },
-      pp: { type: gameLockSchema, default: () => ({}) },
-      habanero: { type: gameLockSchema, default: () => ({}) },
-      cq9: { type: gameLockSchema, default: () => ({}) },
-      spadegaming: { type: gameLockSchema, default: () => ({}) },
-      fachai: { type: gameLockSchema, default: () => ({}) },
-      sabasport: { type: gameLockSchema, default: () => ({}) },
+      epicwin: { type: gameLockSchema, default: () => ({}) },
+      fachaislot: { type: gameLockSchema, default: () => ({}) },
+      fachaifish: { type: gameLockSchema, default: () => ({}) },
+      playace: { type: gameLockSchema, default: () => ({}) },
+      bng: { type: gameLockSchema, default: () => ({}) },
+      jilislot: { type: gameLockSchema, default: () => ({}) },
+      jilifish: { type: gameLockSchema, default: () => ({}) },
+      fastspinslot: { type: gameLockSchema, default: () => ({}) },
+      fastspinfish: { type: gameLockSchema, default: () => ({}) },
+      yesgetrichslot: { type: gameLockSchema, default: () => ({}) },
+      yesgetrichfish: { type: gameLockSchema, default: () => ({}) },
+      jokerslot: { type: gameLockSchema, default: () => ({}) },
+      jokerfish: { type: gameLockSchema, default: () => ({}) },
+      microgamingslot: { type: gameLockSchema, default: () => ({}) },
+      microgaminglive: { type: gameLockSchema, default: () => ({}) },
+      funky: { type: gameLockSchema, default: () => ({}) },
+      tfgaming: { type: gameLockSchema, default: () => ({}) },
       sagaming: { type: gameLockSchema, default: () => ({}) },
-      microgaming: { type: gameLockSchema, default: () => ({}) },
+      yeebet: { type: gameLockSchema, default: () => ({}) },
+      wecasino: { type: gameLockSchema, default: () => ({}) },
+      cq9slot: { type: gameLockSchema, default: () => ({}) },
+      cq9fish: { type: gameLockSchema, default: () => ({}) },
+      habanero: { type: gameLockSchema, default: () => ({}) },
+      btgaming: { type: gameLockSchema, default: () => ({}) },
+      playstar: { type: gameLockSchema, default: () => ({}) },
+      vpower: { type: gameLockSchema, default: () => ({}) },
+      nextspin: { type: gameLockSchema, default: () => ({}) },
+      sbobet: { type: gameLockSchema, default: () => ({}) },
+      playtechslot: { type: gameLockSchema, default: () => ({}) },
+      playtechlive: { type: gameLockSchema, default: () => ({}) },
       hacksaw: { type: gameLockSchema, default: () => ({}) },
+      relaxgaming: { type: gameLockSchema, default: () => ({}) },
+      m9bet: { type: gameLockSchema, default: () => ({}) },
+      rich88: { type: gameLockSchema, default: () => ({}) },
+      rsgslot: { type: gameLockSchema, default: () => ({}) },
+      rsgfish: { type: gameLockSchema, default: () => ({}) },
+      acewinslot: { type: gameLockSchema, default: () => ({}) },
+      acewinfish: { type: gameLockSchema, default: () => ({}) },
+      spadegamingslot: { type: gameLockSchema, default: () => ({}) },
+      spadegamingfish: { type: gameLockSchema, default: () => ({}) },
+      allbet: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
-      alipay: { type: gameStatusSchema, default: () => ({}) },
-      lionking: { type: gameStatusSchema, default: () => ({}) },
-      gw99: { type: gameStatusSchema, default: () => ({}) },
+      mega888: { type: gameStatusSchema, default: () => ({}) },
       // xe88: { type: gameStatusSchema, default: () => ({}) },
       // kiss918: { type: gameStatusSchema, default: () => ({}) },
     },
     lastForcedLogout: { type: Date, default: null },
+    luckySpinPoints: {
+      type: Number,
+      default: 0,
+    },
     luckySpinCount: {
       type: Number,
       default: 0,
@@ -331,84 +356,7 @@ const userSchema = new mongoose.Schema(
       type: userLuckySpinSettingSchema,
       default: () => ({ settings: [], remainingCount: 0 }),
     },
-    live22GameToken: {
-      type: String,
-    },
-    uuslotGameToken: {
-      type: String,
-    },
-    playtechGameToken: {
-      type: String,
-    },
-    habaneroGameToken: {
-      type: String,
-    },
-    CT855GamePW: {
-      type: String,
-    },
-    kiss918GameID: {
-      type: String,
-    },
-    kiss918GamePW: {
-      type: String,
-    },
-    ppliveGameToken: {
-      type: String,
-    },
-    ppslotGameToken: {
-      type: String,
-    },
-    jiliGameToken: {
-      type: String,
-    },
-    lionKingGameID: {
-      type: String,
-    },
-    LFC888GamePW: {
-      type: String,
-    },
-    AsiaGamingGamePW: {
-      type: String,
-    },
-    AsiaGamingGameToken: {
-      type: String,
-    },
-    alipayGameID: {
-      type: String,
-    },
-    alipayGameToken: {
-      type: String,
-    },
-    nextspinGameToken: {
-      type: String,
-    },
-    microGamingGameToken: {
-      type: String,
-    },
-    hacksawGameToken: {
-      type: String,
-    },
-    cmd368GameToken: {
-      type: String,
-    },
-    gw99GameID: {
-      type: String,
-    },
-    gw99GamePW: {
-      type: String,
-    },
-    pastGw99GameID: {
-      type: [String],
-      default: [],
-    },
-    pastGw99GamePW: {
-      type: [String],
-      default: [],
-    },
-    mega888h5ID: {
-      type: String,
-    },
-    mega888h5PW: {
+    epicwinGameToken: {
       type: String,
     },
     lastRebateClaim: {
@@ -418,6 +366,123 @@ const userSchema = new mongoose.Schema(
     lastCommissionClaim: {
       type: Date,
       default: null,
+    },
+    playaceGamePW: {
+      type: String,
+    },
+    playaceGameToken: {
+      type: String,
+    },
+    bngGameTokens: [
+      {
+        token: {
+          type: String,
+          required: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+        expiresAt: {
+          type: Date,
+          required: true,
+        },
+      },
+    ],
+    bngbalanceVersion: {
+      type: Number,
+      default: 0,
+    },
+    hacksawGameToken: {
+      type: String,
+    },
+    relaxgamingGameToken: {
+      type: String,
+    },
+    jiliGameToken: {
+      type: String,
+    },
+    ygrGameTokens: [
+      {
+        token: {
+          type: String,
+          required: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+        expiresAt: {
+          type: Date,
+          required: true,
+        },
+      },
+    ],
+    jokerGameToken: {
+      type: String,
+    },
+    microGamingGameToken: {
+      type: String,
+    },
+    tfGamingGameToken: {
+      type: String,
+    },
+    weCasinoGameToken: {
+      type: String,
+    },
+    habaneroGameToken: {
+      type: String,
+    },
+    playstarGameToken: {
+      type: String,
+    },
+    vpowerGameID: {
+      type: String,
+    },
+    nextspinGameToken: {
+      type: String,
+    },
+    sbobetRegistered: {
+      type: Boolean,
+      default: false,
+    },
+    playtechGameToken: {
+      type: String,
+    },
+    m9betRegistered: {
+      type: Boolean,
+      default: false,
+    },
+    m9betDeposited: {
+      type: Boolean,
+      default: false,
+    },
+    rsgRegistered: {
+      type: Boolean,
+      default: false,
+    },
+    acewinGameToken: {
+      type: String,
+    },
+    mega888GameID: {
+      type: String,
+      default: null,
+    },
+    mega888GamePW: {
+      type: String,
+      default: null,
+    },
+    pastMega888GameID: {
+      type: [String],
+      default: [],
+    },
+    pastMega888GamePW: {
+      type: [String],
+      default: [],
+    },
+    allbetRegistered: {
+      type: Boolean,
+      default: false,
     },
   },
   {
@@ -574,24 +639,6 @@ const gameDataValidLogSchema = new mongoose.Schema(
   }
 );
 
-function generateCustomerId() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let result = "";
-  for (let i = 0; i < 5; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-function generateUserServerId() {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
 adminUserWalletLogSchema.index(
   { createdAt: -1 },
   { expireAfterSeconds: 5256000 }
@@ -602,28 +649,6 @@ gameDataValidLogSchema.index(
   { createdAt: -1 },
   { expireAfterSeconds: 1309600 }
 );
-
-userSchema.pre("save", async function (next) {
-  if (!this.customerId) {
-    let newId;
-    let exists = true;
-    while (exists) {
-      newId = generateCustomerId();
-      exists = await mongoose.models.User.exists({ customerId: newId });
-    }
-    this.customerId = newId;
-  }
-  if (!this.userServerId) {
-    let newServerId;
-    let exists = true;
-    while (exists) {
-      newServerId = generateUserServerId(); // Generates 8-character ID like "a3k9m2qx"
-      exists = await mongoose.models.User.exists({ userServerId: newServerId });
-    }
-    this.userServerId = newServerId;
-  }
-  next();
-});
 
 const adminUserWalletLog = mongoose.model(
   "adminUserWalletLog",

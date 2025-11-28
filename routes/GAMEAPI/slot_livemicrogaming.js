@@ -13,38 +13,21 @@ const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
 const moment = require("moment");
 const jwt = require("jsonwebtoken");
-
-const vip = require("../../models/vip.model");
-const GameMicroGamingGameModal = require("../../models/slot_microgamingDatabase.model");
+const GameMicroGamingGameModal = require("../../models/slot_livemicrogamingDatabase.model");
 const GameWalletLog = require("../../models/gamewalletlog.model");
-const SlotLiveMicroGamingModal = require("../../models/slot_microgaming.model");
+const SlotLiveMicroGamingModal = require("../../models/slot_livemicrogaming.model");
 
 require("dotenv").config();
 
-const microGamingAgentCode = "ZBH0006_MYR_SW";
+const microGamingAgentCode = "ZBH1469_MYR_SW";
 const microGamingSecret = process.env.MICROGAMING_SECRET;
-const webURL = "https://www.oc7.me/";
+const webURL = "https://www.bm8my.vip/";
 const microGamingAPIURL = "https://api-superswansw.k2net.io";
 const microGamingTokenURL = "https://sts-superswansw.k2net.io";
-const cashierURL = "https://www.oc7.me/myaccount/deposit";
+const cashierURL = "https://www.bm8my.vip/myaccount/deposit";
 
 function roundToTwoDecimals(num) {
   return Math.round(num * 100) / 100;
-}
-
-function generateSignature(fields, secretKey) {
-  const data = [];
-  for (const key in fields) {
-    data.push(`${key}=${fields[key]}`);
-  }
-  data.sort();
-
-  const rawData = data.join("&") + secretKey;
-
-  const md5sum = crypto.createHash("md5");
-  md5sum.update(rawData, "utf8");
-
-  return md5sum.digest("hex").toUpperCase();
 }
 
 const generateRandomCode = () => {
@@ -97,300 +80,130 @@ async function getAccessToken() {
     throw new Error("Failed to get access token");
   }
 }
-// router.post("/api/microgaming/update-games", async (req, res) => {
-//   try {
-//     // Your game codes list in order
-//     const gameCodesList = `SMG_bassCatchSuperUp,SMG_luckyTwinsWildsJackpots,SMG_africanWilds,SMG_minePop,SMG_dicePop,SMG_plinkoPop,SMG_chickenNightFever,SMG_jokerIceFrenzyEpicStrike,SMG_bearsMakeBankPowerCombo,P2_devilsfinger,SMG_diamondInferno,SMG_sugarMania8000,SMG_moonlightRomanceTheAwakening,SMG_andvariTheGoldenFish,SMG_mrPiggEBank,SMG_diamondDivaOinkBonanza,SMG_moneyOnReels,SMG_dragonsRhythmLinkAndWin,SMG_breakAwayGold,SMG_breakAwayShootout,SMG_starStashWild7S,SMG_bountifulBirds,SMG_jokerBurstFrenzy,SMG_bigButtonBash,SMG_mummyLockRiches,SMG_bonnysTreasures,SMG_broncoBigBounty,SMG_yamiWarriors,SMG_goFishingReelinFortunes,SMG_arcticWolfTripleRiches,SMG_pizzaFiesta,SMG_almightyPoseidonEmpire,SMG_monkeysTreasureQuest,SMG_3BlazingVolcanoesPowerCombo,SMG_3rdBase,SMG_luckyRumblePowerSurge,SMG_geniesMagicWishes,SMG_treasureStacksWilds,SMG_heavenlyElephantFortune,SMG_sweetJarCombo,SMG_splashOfRiches,SMG_kungPaoPanda,SMG_icePopParty,SMG_reignOfFire,SMG_hatchingGoldRoostersRiches,SMG_moneyDragon,SMG_royalThunderRiders,SMG_3AngelsPowerCombo,SMG_luckyTwinsAnd9Lions,SMG_almightyDionysusEmpire,SMG_frankenstein,SMG_carnavalFiesta,SMG_gatesOfAsgardPowerCombo,SMG_pongPongMahjongJackpots,SMG_cashBlitz,SMG_aztecTripleRichesPowerCombo,SMG_goldInfinity,SMG_mammothTripleRiches,SMG_bookOfWolves,SMG_hadesLostTreasures,SMG_candyRushWilds2,SMG_siennaSteele,SMG_treasureStacks,SMG_crazyBobBonanza,SMG_3LaughingLionsPowerCombo,SMG_almightyAthenaEmpire,SMG_mightyPanda,SMG_luckyTwinsPowerClusters,SMG_massiveGold,SMG_sharkPlatinum,SMG_drWattsUp,SMG_luckyLittleDragons,SMG_queenOfCairo,SMG_108HeroesWaterMargin,SMG_almightyZeusWilds,SMG_crazyRichTigers,SMG_miningPotsOfGold,SMG_chroniclesOfOlympusIIZeus,SMG_goldBlitzExtreme,SMG_godsPyramidsPowerCombo,SMG_dragonsLoot,SMG_fireAndRosesJollyJoker,SMG_9EnchantedBeans,SMG_fishinPotsOfGoldGoldBlitz,SMG_breakAwayMax,SMG_pongPongMahjong,SMG_legendaryTreasures,SMG_queensOfRa,SMG_gemFireFrenzy,SMG_theEternalWidow,SMG_anvilAndOre,SMG_unusualSuspects,SMG_asgardianFire,SMG_tikiTikiBoom,SMG_9PotsOfGoldMegaways,SMG_championsOfOlympus,SMG_amazonLostGold,SMG_dogDays,SMG_andvariTheMagicRing,SMG_fishEmUp,SMG_magicJokers,SMG_stormToRiches,SMG_tippyTavern,SMG_flyX,SMG_almightyZeusEmpire,SMG_grannyVsZombies,SMG_spinSpinSugar,SMG_amazingPharaoh,SMG_sugarCrazeBonanza,SMG_romeFightForGold,SMG_fortunePikeGold,SMG_bubbleBeez,SMG_chilliPepeHotStacks,SMG_monkeyBonanza,SMG_galloGoldMegaways,SMG_leprechaunStrike,SMG_fireAndRosesJoker,SMG_happyLuckyCats,SMG_chestsOfGold,SMG_wildfireWinsExtreme,SMG_candyRushWilds,SMG_wolfBlazeMegaways,SMG_goldBlitz,SMG_dragonsKeep,SMG_dokiDokiFireworks,SMG_bisonMoon,SMG_trojanKingdom,SMG_mastersOfOlympus,SMG_playboyWilds,SMG_tigersIce,SMG_thunderstruckStormchaser,SMG_fishinChristmasPotsOfGold,SMG_fionasChristmasFortune,SMG_luckyTwinsLinkAndWin,SMG_fishinBiggerPots,SMG_sonicLinks,SMG_777superBigBuildUpDeluxe,SMG_robinHoodsHeroes,SMG_aquanauts,SMG_starliteFruits,SMG_jadeShuriken,SMG_amazonKingdom,SMG_kitsuneAdventure,SMG_arkOfRa,SMG_777Surge,SMG_boltXUP,SMG_luckyLeprechaunClusters,SMG_maskOfAmun,SMG_divineRichesHelios,SMG_wildfireWins,SMG_circusJugglersJackpots,SMG_abraCatDabra,SMG_wildWildRomance,SMG_immortalRomanceVideoBingo,SMG_immortalRomance,SMG_lightningFortunes,SMG_25000Talons,SMG_cashNRichesMegaways,SMG_15Tridents,SMG_dungeonsAndDiamonds,SMG_aztecFalls,SMG_mastersOfValhalla,SMG_dokiDokiParfait,SMG_oniHunterNightSakura,SMG_fishinPotsOfGold,SMG_kingsOfCrystals,SMG_5StarKnockout,SMG_agentJaneBlondeMaxVolume,SMG_basketballStarWilds,SMG_kodiakKingdom,SMG_bigBoomRiches,SMG_squealinRiches,SMG_4DiamondBlues,SMG_9masksOfFireHyperSpins,SMG_catClans,SMG_bookOfMrsClaus,SMG_luckyClucks,SMG_chroniclesOfOlympusXUP,SMG_wweLegendsLinkWin,SMG_fortuneRush,SMG_10000Wishes,SMG_108Heroes,SMG_5ReelDrive,SMG_777MegaDeluxe,SMG_777RoyalWheel,SMG_9masksOfFire,SMG_9potsOfGold,SMG_aDarkMatter,SMG_aTaleOfElves,SMG_actionOpsSnowAndSable,SMG_adventurePalace,SMG_adventuresOfDoubloonIsland,SMG_africaXUP,SMG_ageOfDiscovery,SMG_agentJaneBlonde,SMG_alaskanFishing,SMG_alchemyFortunes,SMG_ancientFortunesPoseidonMegaways,SMG_ancientFortunesZeus,SMG_ariana,SMG_asianBeauty,SMG_assassinMoon,SMG_astroLegendsLyraandErion,SMG_auroraWilds,SMG_avalon,SMG_badmintonHero,SMG_bananaOdyssey,SMG_barBarBlackSheep5Reel,SMG_BarsAndStripes,SMG_basketballStar,SMG_basketballStarDeluxe,SMG_basketballStaronFire,SMG_beautifulBones,SMG_bigKahuna,SMG_bigTop,SMG_bikiniParty,SMG_blazingMammoth,SMG_boatofFortune,SMG_bookOfKingArthur,SMG_bookOfOz,SMG_bookOfOzLockNSpin,SMG_bookieOfOdds,SMG_boomPirates,SMG_breakAway,SMG_breakAwayDeluxe,SMG_breakAwayLuckyWilds,SMG_breakAwayUltra,SMG_breakDaBank,SMG_breakDaBankAgain,SMG_breakDaBankAgainRespin,SMG_breakDaBankAgainMegaways,SMG_burningDesire,SMG_bushTelegraph,SMG_bustTheBank,SMG_carnaval,SMG_carnavalJackpot,SMG_cashOfKingdoms,SMG_cashapillar,SMG_centreCourt,SMG_coolBuck5Reel,SMG_coolWolf,SMG_cricketStar,SMG_cricketStarScratch,SMG_deckTheHalls,SMG_diamondEmpire,SMG_dragonDance,SMG_dragonShard,SMG_dragonz,SMG_dreamDate,SMG_eaglesWings,SMG_emeraldGold,SMG_emperorOfTheSea,SMG_emperorOfTheSeaDeluxe,SMG_exoticCats,SMG_fireForge,SMG_fishParty,SMG_footballStar,SMG_footballStarDeluxe,SMG_forgottenIsland,SMG_fortuneGirl,SMG_fortunium,SMG_fruitBlast,SMG_fruitVSCandy,SMG_gemsAndDragons,SMG_goldCollector,SMG_goldenEra,SMG_goldenPrincess,SMG_goldenStallion,SMG_gopherGold,SMG_halloweenies,SMG_HappyHolidays,SMG_happyMonsterClaw,SMG_highSociety,SMG_hollyJollyPenguins,SMG_hyperGold,SMG_incanAdventure,SMG_theIncredibleBalloonMachine,SMG_jungleJimElDorado,SMG_jungleJimAndTheLostSphinx,SMG_kathmandu,SMG_kingTusk,SMG_kingsOfCash,SMG_ladiesNite,SMG_laraCroftTemplesAndTombs,SMG_legacyOfOz,SMG_LegendOftheMoonLovers,SMG_lifeOfRiches,SMG_loaded,SMG_longMuFortunes,SMG_lostVegas,SMG_luchaLegends,SMG_luckyBachelors,SMG_luckyfirecracker,SMG_luckyKoi,SMG_luckyLeprechaun,SMG_luckyLittleGods,SMG_luckyRichesHyperspins,SMG_luckyTwins,SMG_luckyTwinsCatcher,SMG_luckyTwinsJackpot,SMG_luckyTwinsWilds,SMG_magicOfSahara,SMG_maxDamageArcade,SMG_megaMoneyMultiplier,SMG_mermaidsMillions,SMG_monsterBlast,SMG_neptunesRichesOceanOfWilds,SMG_odinsRiches,SMG_oniHunter,SMG_oniHunterPlus,SMG_ourDaysA,SMG_pingPongStar,SMG_playboy,SMG_playboyFortunes,SMG_playboyGold,SMG_playboyGoldJackpots,SMG_purePlatinum,SMG_queenofAlexandria,SMG_queenOfTheCrystalRays,SMG_reelGems,SMG_reelGemsDeluxe,SMG_reelSpinner,SMG_ReelTalent,SMG_reelThunder,SMG_relicSeekers,SMG_retroReels,SMG_retroReelsDiamondGlitz,SMG_retroReelsExtremeHeat,SMG_rhymingReelsHeartsAndTarts,SMG_rugbyStar,SMG_rugbyStarDeluxe,SMG_santasWildRide,SMG_scrooge,SMG_secretAdmirer,SMG_secretRomance,SMG_serengetiGold,SMG_shamrockHolmes,SMG_shogunofTime,SMG_showdownSaloon,SMG_silverFang,SMG_silverSeas,SMG_silverbackMultiplierMountain,SMG_soccerStriker,SMG_springBreak,SMG_starlightKiss,SMG_sterlingSilver,SMG_summertime,SMG_sunTide,SMG_sureWin,SMG_tallyHo,SMG_theTwistedCircus,SMG_thunderstruck,SMG_thunderstruck2,SMG_thunderstruckWildLightning,SMG_tigersEye,SMG_treasureDash,SMG_treasurePalace,SMG_treasuresOfLionCity,SMG_untamedGiantPanda,SMG_wackyPanda,SMG_wantedOutlaws,SMG_westernGold,SMG_whatAHoot,SMG_wickedTalesDarkRed,SMG_wildCatchNew,SMG_wildOrient,SMG_wildScarabs,SMG_winSumDimSum`;
 
-//     // Split the string into array
-//     const gameCodesArray = gameCodesList.split(",").map((code) => code.trim());
-
-//     console.log(`Processing ${gameCodesArray.length} Microgaming games...`);
-
-//     // First, set all games hot = false
-//     await GameMicroGamingGameModal.updateMany({}, { $set: { hot: false } });
-
-//     // Update ALL games with createdAt based on their position in the list
-//     const updateResults = [];
-//     const baseTime = new Date(); // Current time for the #1 game
-
-//     // Process all games
-//     for (let i = 0; i < gameCodesArray.length; i++) {
-//       const gameCode = gameCodesArray[i];
-//       const isTop10 = i < 10; // First 10 games are top 10
-
-//       // Calculate createdAt: #1 game = latest time, each subsequent game is 30 minutes earlier
-//       const createdAtTime = new Date(baseTime.getTime() - i * 30 * 60 * 1000);
-
-//       try {
-//         // Use MongoDB collection directly to bypass Mongoose timestamps
-//         const updateResult =
-//           await GameMicroGamingGameModal.collection.updateOne(
-//             { gameID: gameCode },
-//             {
-//               $set: {
-//                 hot: isTop10, // Only top 10 are hot
-//                 createdAt: createdAtTime,
-//                 updatedAt: new Date(),
-//               },
-//             }
-//           );
-
-//         updateResults.push({
-//           position: i + 1,
-//           gameCode: gameCode,
-//           createdAt: createdAtTime.toISOString(),
-//           isTop10: isTop10,
-//           hot: isTop10,
-//           matched: updateResult.matchedCount > 0,
-//           updated: updateResult.modifiedCount > 0,
-//         });
-
-//         if (i < 20 || updateResult.matchedCount === 0) {
-//           // Log first 20 and any not found
-//           console.log(
-//             `#${i + 1} - ${gameCode} - ${createdAtTime.toISOString()} - ${
-//               updateResult.matchedCount > 0 ? "FOUND" : "NOT FOUND"
-//             } - Hot: ${isTop10}`
-//           );
-//         }
-//       } catch (error) {
-//         console.error(`Error updating game ${gameCode}:`, error);
-//         updateResults.push({
-//           position: i + 1,
-//           gameCode: gameCode,
-//           createdAt: createdAtTime.toISOString(),
-//           isTop10: isTop10,
-//           hot: isTop10,
-//           matched: false,
-//           updated: false,
-//           error: error.message,
-//         });
-//       }
-//     }
-
-//     // Count results
-//     const totalMatched = updateResults.filter((r) => r.matched).length;
-//     const totalUpdated = updateResults.filter((r) => r.updated).length;
-//     const top10Matched = updateResults.filter(
-//       (r) => r.isTop10 && r.matched
-//     ).length;
-//     const notFound = updateResults.filter((r) => !r.matched);
-
-//     console.log(
-//       `Update complete: ${totalUpdated}/${gameCodesArray.length} games updated, ${top10Matched}/10 top games found`
-//     );
-
-//     return res.status(200).json({
-//       success: true,
-//       message: `Updated ${totalUpdated} Microgaming games with new createdAt times and ${top10Matched} hot games`,
-//       summary: {
-//         totalGames: gameCodesArray.length,
-//         totalFoundInDB: totalMatched,
-//         totalUpdated: totalUpdated,
-//         top10HotGames: top10Matched,
-//         notFoundInDB: gameCodesArray.length - totalMatched,
-//         allGamesSetToNotHot: true,
-//       },
-//       top10Results: updateResults.slice(0, 10), // Show top 10 results
-//       totalNotFound: notFound.length,
-//       sampleNotFound: notFound.slice(0, 10).map((g) => ({
-//         position: g.position,
-//         gameCode: g.gameCode,
-//       })),
-//     });
-//   } catch (error) {
-//     console.error("Update Microgaming games error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Error updating Microgaming games",
-//       error: error.message,
-//     });
-//   }
-// });
-
-// router.post("/api/microgaming/import-games", async (req, res) => {
-//   try {
-//     const fs = require("fs");
-//     const path = require("path");
-
-//     // Path to your exported JSON file
-//     const filePath = path.join(__dirname, "../../public/microgaming.json");
-
-//     // Check if file exists
-//     if (!fs.existsSync(filePath)) {
-//       return res.status(404).json({
-//         success: false,
-//         message:
-//           "joker.json file not found. Please ensure the file exists in public folder.",
-//       });
-//     }
-
-//     // Read the JSON file
-//     const fileContent = fs.readFileSync(filePath, "utf8");
-//     const gameData = JSON.parse(fileContent);
-
-//     // Validate that it's an array
-//     if (!Array.isArray(gameData)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid JSON format. Expected an array of games.",
-//       });
-//     }
-
-//     // Clean the games data - remove MongoDB specific fields
-//     const cleanGames = gameData.map((game) => {
-//       const cleanGame = { ...game };
-
-//       // Remove MongoDB specific fields
-//       delete cleanGame._id;
-//       delete cleanGame.__v;
-//       delete cleanGame.createdAt;
-//       delete cleanGame.updatedAt;
-
-//       return cleanGame;
-//     });
-
-//     console.log(`Preparing to import ${cleanGames.length} games...`);
-
-//     // Delete all existing games and insert new ones
-//     const deleteResult = await GameMicroGamingGameModal.deleteMany({});
-//     console.log(`Deleted ${deleteResult.deletedCount} existing games`);
-
-//     const insertResult = await GameMicroGamingGameModal.insertMany(cleanGames);
-//     console.log(`Successfully imported ${insertResult.length} games`);
-
-//     return res.status(200).json({
-//       success: true,
-//       message: {
-//         en: `Successfully imported ${insertResult.length} games.`,
-//         zh: `成功导入 ${insertResult.length} 个游戏。`,
-//         ms: `Berjaya mengimport ${insertResult.length} permainan.`,
-//       },
-//       details: {
-//         totalImported: insertResult.length,
-//         deletedExisting: deleteResult.deletedCount,
-//         filePath: filePath,
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Error importing joker games:", error.message);
-
-//     // Handle specific error types
-//     if (error instanceof SyntaxError) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid JSON format in joker.json file.",
-//         error: error.message,
-//       });
-//     }
-
-//     if (error.code === 11000) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Duplicate key error during import.",
-//         error: "Some games have duplicate gameID values.",
-//       });
-//     }
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to import joker games.",
-//       error: error.message,
-//     });
-//   }
-// });
-// router.post("/api/microgaming/comparegames", async (req, res) => {
+// router.post("/api/microgaming/comparegame", async (req, res) => {
 //   try {
 //     const token = await getAccessToken();
 
-//     const [apiResponse, dbGames] = await Promise.all([
-//       axios.get(
-//         `${microGamingAPIURL}/api/v1/agents/${microGamingAgentCode}/games`,
-
-//         {
-//           headers: {
-//             Authorization: `Bearer ${token}`,
-//             "Content-Type": "application/x-www-form-urlencoded",
-//           },
-//         }
-//       ),
-//       GameMicroGamingGameModal.find(
-//         {},
-//         { gameID: 1, gameNameEN: 1, _id: 0 }
-//       ).lean(),
-//     ]);
-
-//     // Extract game codes/IDs - Fixed to use correct response structure
-//     const apiGameCodes = new Set(
-//       apiResponse.data.map((game) => String(game.gameCode)) // Convert to string for consistency
-//     );
-//     const dbGameIDs = new Set(
-//       dbGames.map((game) => String(game.gameID)) // Convert to string for consistency
+//     const response = await axios.get(
+//       `${microGamingAPIURL}/api/v1/agents/${microGamingAgentCode}/games`,
+//       {
+//         headers: {
+//           Authorization: `Bearer ${token}`,
+//           "Content-Type": "application/x-www-form-urlencoded",
+//         },
+//       }
 //     );
 
-//     // Find differences
-//     const missingInDB = [...apiGameCodes].filter(
-//       (code) => !dbGameIDs.has(code)
+//     if (response.status !== 200 && response.status !== 201) {
+//       console.log("MicroGaming error fetching game list", response.data);
+//       return res.status(200).json({
+//         success: false,
+//         message: {
+//           en: "MICRO GAMING: Unable to retrieve game lists. Please contact customer service for assistance.",
+//           zh: "MICRO GAMING: 无法获取游戏列表，请联系客服以获取帮助。",
+//           ms: "MICRO GAMING: Tidak dapat mendapatkan senarai permainan. Sila hubungi khidmat pelanggan untuk bantuan.",
+//         },
+//       });
+//     }
+
+//     // Get all games from database
+//     const dbGames = await GameMicroGamingGameModal.find({}, "gameID");
+
+//     // Extract game IDs from database
+//     const dbGameIds = new Set(dbGames.map((game) => game.gameID));
+
+//     // Extract games from API response
+//     const apiGames = response.data;
+//     const apiGameIds = new Set(apiGames.map((game) => game.gameCode));
+
+//     // Count totals
+//     const totalApiGames = apiGames.length;
+//     const totalDbGames = dbGames.length;
+
+//     // Find missing games (in API but not in database)
+//     const missingGames = apiGames.filter(
+//       (game) => !dbGameIds.has(game.gameCode)
 //     );
-//     const extraInDB = [...dbGameIDs].filter((id) => !apiGameCodes.has(id));
 
-//     // Update maintenance status - Fixed to use correct model
-//     const [setMaintenanceTrue, setMaintenanceFalse] = await Promise.all([
-//       // Set maintenance = true for games NOT in API (extra in DB)
-//       GameMicroGamingGameModal.updateMany(
-//         { gameID: { $in: extraInDB } },
-//         { $set: { maintenance: true } }
-//       ),
-//       // Set maintenance = false for games that exist in API
-//       GameMicroGamingGameModal.updateMany(
-//         { gameID: { $in: [...apiGameCodes] } },
-//         { $set: { maintenance: false } }
-//       ),
-//     ]);
+//     // Find extra games (in database but not in API) and set maintenance to true
+//     const extraGameIds = [...dbGameIds].filter(
+//       (gameId) => !apiGameIds.has(gameId)
+//     );
 
-//     // Get details for missing games - Fixed to use correct response structure
-//     const missingGamesDetails = apiResponse.data
-//       .filter((game) => missingInDB.includes(String(game.gameCode)))
-//       .map((game) => ({
-//         gameId: game.game_id,
-//         gameName: game.game_name,
-//         gameNameCn: game.game_name_cn,
-//         gameType: game.game_type,
-//         rtp: game.rtp,
-//         releaseDate: game.release_date,
-//       }));
+//     // Update extra games to maintenance: true
+//     if (extraGameIds.length > 0) {
+//       await GameMicroGamingGameModal.updateMany(
+//         { gameID: { $in: extraGameIds } },
+//         { maintenance: true }
+//       );
+//       console.log(
+//         `Set maintenance: true for ${extraGameIds.length} games not in API`
+//       );
+//     }
 
-//     // Get details for extra games
-//     const extraGamesDetails = dbGames
-//       .filter((game) => extraInDB.includes(String(game.gameID)))
-//       .map((game) => ({
-//         gameID: game.gameID,
-//         gameNameEN: game.gameNameEN,
-//       }));
+//     // Set maintenance to false for games that are in API (not extra)
+//     const activeGameIds = [...apiGameIds];
+//     if (activeGameIds.length > 0) {
+//       await GameMicroGamingGameModal.updateMany(
+//         { gameID: { $in: activeGameIds } },
+//         { maintenance: false }
+//       );
+//       console.log(
+//         `Set maintenance: false for ${activeGameIds.length} games in API`
+//       );
+//     }
+
+//     // Return missing games with gameName, gameCode, and gameCategoryCode
+//     const missingGamesInfo = missingGames.map((game) => ({
+//       gameName: game.gameName,
+//       gameCode: game.gameCode,
+//       gameCategoryCode: game.gameCategoryCode,
+//       translatedGameName: game.translatedGameName,
+//       channelCode: game.channelCode,
+//       channelName: game.channelName,
+//       gameCategoryName: game.gameCategoryName,
+//       gameSubcategoryCode: game.gameSubcategoryCode,
+//       gameSubcategoryName: game.gameSubcategoryName,
+//       releaseDateUTC: game.releaseDateUTC,
+//       platform: game.platform,
+//       isDemoEnabled: game.isDemoEnabled,
+//       rtp: game.rtp,
+//       volatility: game.volatility,
+//     }));
+
+//     console.log("Missing games:", missingGamesInfo);
+//     console.log("Extra games set to maintenance:", extraGameIds.length);
+//     console.log(
+//       `Total API games: ${totalApiGames}, Total DB games: ${totalDbGames}`
+//     );
 
 //     return res.status(200).json({
 //       success: true,
-//       summary: {
-//         totalAPIGames: apiGameCodes.size,
-//         totalDBGames: dbGameIDs.size,
-//         missingInDB: missingInDB.length,
-//         extraInDB: extraInDB.length,
-//         matching: apiGameCodes.size - missingInDB.length,
+//       gameLobby: response.data,
+//       comparison: {
+//         missingGames: missingGamesInfo,
+//         extraGamesCount: extraGameIds.length,
+//         extraGameIds: extraGameIds,
+//         missingCount: missingGamesInfo.length,
+//         totalApiGames: totalApiGames,
+//         totalDbGames: totalDbGames,
 //       },
-//       maintenanceUpdates: {
-//         setToMaintenance: setMaintenanceTrue.modifiedCount,
-//         setToActive: setMaintenanceFalse.modifiedCount,
+//       message: {
+//         en: "Game launched successfully.",
+//         zh: "游戏启动成功。",
+//         ms: "Permainan berjaya dimulakan.",
 //       },
-//       missingInDatabase: missingGamesDetails,
-//       extraInDatabase: extraGamesDetails,
 //     });
 //   } catch (error) {
-//     console.error("Compare hacksaw games error:", error);
-//     return res.status(500).json({
+//     console.error("MicroGaming error:", error);
+//     return res.status(200).json({
 //       success: false,
-//       message: "Error comparing games",
-//       error: error.message,
+//       message: {
+//         en: "MICRO GAMING: Game launch failed. Please try again or contact customer service for assistance.",
+//         zh: "MICRO GAMING: 游戏启动失败，请重试或联系客服以获得帮助。",
+//         ms: "MICRO GAMING: Pelancaran permainan gagal. Sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+//       },
 //     });
 //   }
 // });
@@ -521,25 +334,44 @@ router.post(
 
       const { gameLang, gameCode, clientPlatform } = req.body;
 
-      if (user.gameLock.microgaming.lock) {
+      if (!user) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "User not found. Please try again or contact customer service for assistance.",
+            zh: "用户未找到，请重试或联系客服以获取帮助。",
+            ms: "Pengguna tidak ditemui, sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+            zh_hk: "用戶未找到，請重試或聯絡客服以獲取幫助。",
+            id: "Pengguna tidak ditemukan. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
+          },
+        });
+      }
+
+      if (user.gameLock.microgamingslot.lock) {
         return res.status(200).json({
           success: false,
           message: {
             en: "Your game access has been locked. Please contact customer support for further assistance.",
             zh: "您的游戏访问已被锁定，请联系客服以获取进一步帮助。",
             ms: "Akses permainan anda telah dikunci. Sila hubungi khidmat pelanggan untuk bantuan lanjut.",
+            zh_hk: "您的遊戲訪問已被鎖定，請聯絡客服以獲取進一步幫助。",
+            id: "Akses permainan Anda telah dikunci. Silakan hubungi dukungan pelanggan untuk bantuan lebih lanjut.",
           },
         });
       }
 
       let lang = "en-US";
 
-      if (gameLang === "zh") {
+      if (gameLang === "en") {
+        lang = "en-US";
+      } else if (gameLang === "zh") {
         lang = "zh-CN";
+      } else if (gameLang === "zh_hk") {
+        lang = "zh-TW";
       } else if (gameLang === "ms") {
         lang = "ms-MY";
-      } else {
-        lang = "en-US";
+      } else if (gameLang === "id") {
+        lang = "id-ID";
       }
 
       let platform = "Desktop";
@@ -549,7 +381,7 @@ router.post(
         platform = "Mobile";
       }
 
-      let logintoken = `${user.username}:${generateRandomCode()}`;
+      let logintoken = `${user.gameId}:${generateRandomCode()}`;
 
       const payload = new URLSearchParams({
         contentCode: gameCode,
@@ -561,7 +393,7 @@ router.post(
       });
 
       const response = await axios.post(
-        `${microGamingAPIURL}/api/v1/agents/${microGamingAgentCode}/players/${user.username}/sessions`,
+        `${microGamingAPIURL}/api/v1/agents/${microGamingAgentCode}/players/${user.gameId}/sessions`,
         payload.toString(),
         {
           headers: {
@@ -581,6 +413,8 @@ router.post(
             en: "MICRO GAMING: Game launch failed. Please try again or contact customer service for assistance.",
             zh: "MICRO GAMING: 游戏启动失败，请重试或联系客服以获得帮助。",
             ms: "MICRO GAMING: Pelancaran permainan gagal. Sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+            zh_hk: "MICRO GAMING: 遊戲啟動失敗，請重試或聯絡客服以獲得幫助。",
+            id: "MICRO GAMING: Peluncuran permainan gagal. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
           },
         });
       }
@@ -598,7 +432,7 @@ router.post(
         "Transfer In",
         "Seamless",
         roundToTwoDecimals(user.wallet),
-        "MICRO GAMING"
+        "MICRO GAMING SLOT"
       );
 
       return res.status(200).json({
@@ -608,6 +442,8 @@ router.post(
           en: "Game launched successfully.",
           zh: "游戏启动成功。",
           ms: "Permainan berjaya dimulakan.",
+          zh_hk: "遊戲啟動成功。",
+          id: "Permainan berhasil diluncurkan.",
         },
       });
     } catch (error) {
@@ -618,6 +454,8 @@ router.post(
           en: "MICRO GAMING: Game launch failed. Please try again or contact customer service for assistance.",
           zh: "MICRO GAMING: 游戏启动失败，请重试或联系客服以获得帮助。",
           ms: "MICRO GAMING: Pelancaran permainan gagal. Sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+          zh_hk: "MICRO GAMING: 遊戲啟動失敗，請重試或聯絡客服以獲得幫助。",
+          id: "MICRO GAMING: Peluncuran permainan gagal. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
         },
       });
     }
@@ -636,25 +474,44 @@ router.post(
 
       const { gameLang, clientPlatform } = req.body;
 
-      if (user.gameLock.microgaming.lock) {
+      if (!user) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "User not found. Please try again or contact customer service for assistance.",
+            zh: "用户未找到，请重试或联系客服以获取帮助。",
+            ms: "Pengguna tidak ditemui, sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+            zh_hk: "用戶未找到，請重試或聯絡客服以獲取幫助。",
+            id: "Pengguna tidak ditemukan. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
+          },
+        });
+      }
+
+      if (user.gameLock.microgaminglive.lock) {
         return res.status(200).json({
           success: false,
           message: {
             en: "Your game access has been locked. Please contact customer support for further assistance.",
             zh: "您的游戏访问已被锁定，请联系客服以获取进一步帮助。",
             ms: "Akses permainan anda telah dikunci. Sila hubungi khidmat pelanggan untuk bantuan lanjut.",
+            zh_hk: "您的遊戲訪問已被鎖定，請聯絡客服以獲取進一步幫助。",
+            id: "Akses permainan Anda telah dikunci. Silakan hubungi dukungan pelanggan untuk bantuan lebih lanjut.",
           },
         });
       }
 
       let lang = "en-US";
 
-      if (gameLang === "zh") {
+      if (gameLang === "en") {
+        lang = "en-US";
+      } else if (gameLang === "zh") {
         lang = "zh-CN";
+      } else if (gameLang === "zh_hk") {
+        lang = "zh-TW";
       } else if (gameLang === "ms") {
         lang = "ms-MY";
-      } else {
-        lang = "en-US";
+      } else if (gameLang === "id") {
+        lang = "id-ID";
       }
 
       let platform = "Desktop";
@@ -664,7 +521,7 @@ router.post(
         platform = "Mobile";
       }
 
-      let logintoken = `${user.username}:${generateRandomCode()}`;
+      let logintoken = `${user.gameId}:${generateRandomCode()}`;
 
       const payload = new URLSearchParams({
         contentCode: "MGL_GRAND_LobbyAll",
@@ -677,7 +534,7 @@ router.post(
       });
 
       const response = await axios.post(
-        `${microGamingAPIURL}/api/v1/agents/${microGamingAgentCode}/players/${user.username}/sessions`,
+        `${microGamingAPIURL}/api/v1/agents/${microGamingAgentCode}/players/${user.gameId}/sessions`,
         payload.toString(),
         {
           headers: {
@@ -697,6 +554,8 @@ router.post(
             en: "MICRO GAMING: Game launch failed. Please try again or contact customer service for assistance.",
             zh: "MICRO GAMING: 游戏启动失败，请重试或联系客服以获得帮助。",
             ms: "MICRO GAMING: Pelancaran permainan gagal. Sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+            zh_hk: "MICRO GAMING: 遊戲啟動失敗，請重試或聯絡客服以獲得幫助。",
+            id: "MICRO GAMING: Peluncuran permainan gagal. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
           },
         });
       }
@@ -714,7 +573,7 @@ router.post(
         "Transfer In",
         "Seamless",
         roundToTwoDecimals(user.wallet),
-        "MICRO GAMING"
+        "MICRO GAMING LIVE"
       );
 
       return res.status(200).json({
@@ -724,6 +583,8 @@ router.post(
           en: "Game launched successfully.",
           zh: "游戏启动成功。",
           ms: "Permainan berjaya dimulakan.",
+          zh_hk: "遊戲啟動成功。",
+          id: "Permainan berhasil diluncurkan.",
         },
       });
     } catch (error) {
@@ -734,6 +595,8 @@ router.post(
           en: "MICRO GAMING: Game launch failed. Please try again or contact customer service for assistance.",
           zh: "MICRO GAMING: 游戏启动失败，请重试或联系客服以获得帮助。",
           ms: "MICRO GAMING: Pelancaran permainan gagal. Sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+          zh_hk: "MICRO GAMING: 遊戲啟動失敗，請重試或聯絡客服以獲得幫助。",
+          id: "MICRO GAMING: Peluncuran permainan gagal. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
         },
       });
     }
@@ -755,7 +618,7 @@ router.post("/api/microgaming/login", async (req, res) => {
     }
 
     const user = await User.findOne(
-      { username: playerId },
+      { gameId: playerId },
       { username: 1, wallet: 1, microGamingGameToken: 1 }
     ).lean();
 
@@ -802,7 +665,7 @@ router.post("/api/microgaming/getbalance", async (req, res) => {
     }
 
     const currentUser = await User.findOne(
-      { username: playerId },
+      { gameId: playerId },
       { username: 1, wallet: 1 }
     ).lean();
 
@@ -874,8 +737,14 @@ router.post("/api/microgaming/updatebalance", async (req, res) => {
       case "DEBIT":
         const [currentUserDebit, existingTransactionDebit] = await Promise.all([
           User.findOne(
-            { username: playerId },
-            { username: 1, wallet: 1, "gameLock.microgaming.lock": 1, _id: 1 }
+            { gameId: playerId },
+            {
+              username: 1,
+              wallet: 1,
+              "gameLock.microgamingslot.lock": 1,
+              "gameLock.microgaminglive.lock": 1,
+              _id: 1,
+            }
           ).lean(),
           SlotLiveMicroGamingModal.findOne(
             { tranId: txnId },
@@ -892,7 +761,11 @@ router.post("/api/microgaming/updatebalance", async (req, res) => {
           });
         }
 
-        if (currentUserDebit.gameLock?.microgaming?.lock) {
+        const isLocked =
+          gameType === "SLOT"
+            ? currentUserDebit.gameLock?.microgamingslot?.lock
+            : currentUserDebit.gameLock?.microgaminglive?.lock;
+        if (isLocked) {
           res.set("X-MGP-RESPONSE-TIME", Date.now() - startTime);
           return res.status(403).json({
             extTxnId: extransId,
@@ -912,10 +785,10 @@ router.post("/api/microgaming/updatebalance", async (req, res) => {
 
         const updatedUserBalanceDebit = await User.findOneAndUpdate(
           {
-            username: playerId,
-            wallet: { $gte: roundToTwoDecimals(amount || 0) },
+            gameId: playerId,
+            wallet: { $gte: roundToTwoDecimals(amount) },
           },
-          { $inc: { wallet: -roundToTwoDecimals(amount || 0) } },
+          { $inc: { wallet: -roundToTwoDecimals(amount) } },
           { new: true, projection: { wallet: 1 } }
         ).lean();
 
@@ -936,7 +809,6 @@ router.post("/api/microgaming/updatebalance", async (req, res) => {
           betamount: roundToTwoDecimals(amount),
           gameType: gameType,
           completed: completed !== undefined ? completed : true,
-          roundId: roundId || "",
         });
 
         res.set("X-MGP-RESPONSE-TIME", Date.now() - startTime);
@@ -953,7 +825,7 @@ router.post("/api/microgaming/updatebalance", async (req, res) => {
           existingSettledTransactionCredit,
         ] = await Promise.all([
           User.findOne(
-            { username: playerId },
+            { gameId: playerId },
             { username: 1, wallet: 1, _id: 1 }
           ).lean(),
           SlotLiveMicroGamingModal.findOne({ betId: betId }, { _id: 1 }).lean(),
@@ -993,7 +865,7 @@ router.post("/api/microgaming/updatebalance", async (req, res) => {
         const [updatedUserBalanceCredit, settlementResult] = await Promise.all([
           User.findByIdAndUpdate(
             currentUserCredit._id,
-            { $inc: { wallet: roundToTwoDecimals(amount || 0) } },
+            { $inc: { wallet: roundToTwoDecimals(amount) } },
             { new: true, projection: { wallet: 1 } }
           ).lean(),
           SlotLiveMicroGamingModal.findOneAndUpdate(
@@ -1020,7 +892,6 @@ router.post("/api/microgaming/updatebalance", async (req, res) => {
             settleamount: roundToTwoDecimals(amount),
             settleId: txnId,
             gameType: gameType,
-            roundId: roundId || "",
             completed: completed !== undefined ? completed : true,
           }).catch((error) => {
             console.error(
@@ -1104,7 +975,7 @@ router.post("/api/microgaming/rollback", async (req, res) => {
       existingSettledTransactionCredit,
     ] = await Promise.all([
       User.findOne(
-        { username: playerId },
+        { gameId: playerId },
         { username: 1, wallet: 1, _id: 1 }
       ).lean(),
       SlotLiveMicroGamingModal.findOne(
@@ -1143,9 +1014,9 @@ router.post("/api/microgaming/rollback", async (req, res) => {
 
     let walletAdjustment;
     if (existingTransactionCredit.settle === true) {
-      walletAdjustment = -roundToTwoDecimals(amount || 0);
+      walletAdjustment = -roundToTwoDecimals(amount);
     } else {
-      walletAdjustment = roundToTwoDecimals(amount || 0);
+      walletAdjustment = roundToTwoDecimals(amount);
     }
 
     const [updatedUserBalanceCredit] = await Promise.all([
@@ -1238,6 +1109,8 @@ router.post("/api/microgamingslot/getturnoverforrebate", async (req, res) => {
         .toDate();
     }
 
+    console.log("MICRO GAMING SLOT QUERYING TIME", startDate, endDate);
+
     const records = await SlotLiveMicroGamingModal.find({
       createdAt: {
         $gte: startDate,
@@ -1248,19 +1121,38 @@ router.post("/api/microgamingslot/getturnoverforrebate", async (req, res) => {
       gameType: "SLOT",
     });
 
+    const uniqueGameIds = [
+      ...new Set(records.map((record) => record.username)),
+    ];
+
+    const users = await User.find(
+      { gameId: { $in: uniqueGameIds } },
+      { gameId: 1, username: 1 }
+    ).lean();
+
+    const gameIdToUsername = {};
+    users.forEach((user) => {
+      gameIdToUsername[user.gameId] = user.username;
+    });
+
     // Aggregate turnover and win/loss for each player
     let playerSummary = {};
 
     records.forEach((record) => {
-      const username = record.username.toLowerCase();
+      const gameId = record.username;
+      const actualUsername = gameIdToUsername[gameId];
 
-      if (!playerSummary[username]) {
-        playerSummary[username] = { turnover: 0, winloss: 0 };
+      if (!actualUsername) {
+        console.warn(`MICRO GAMING SLOT User not found for gameId: ${gameId}`);
+        return;
+      }
+      if (!playerSummary[actualUsername]) {
+        playerSummary[actualUsername] = { turnover: 0, winloss: 0 };
       }
 
-      playerSummary[username].turnover += record.betamount || 0;
+      playerSummary[actualUsername].turnover += record.betamount || 0;
 
-      playerSummary[username].winloss +=
+      playerSummary[actualUsername].winloss +=
         (record.settleamount || 0) - (record.betamount || 0);
     });
 
@@ -1332,6 +1224,8 @@ router.post("/api/microgaminglive/getturnoverforrebate", async (req, res) => {
         .toDate();
     }
 
+    console.log("MICRO GAMING LIVE QUERYING TIME", startDate, endDate);
+
     const records = await SlotLiveMicroGamingModal.find({
       createdAt: {
         $gte: startDate,
@@ -1342,19 +1236,39 @@ router.post("/api/microgaminglive/getturnoverforrebate", async (req, res) => {
       gameType: "LIVE",
     });
 
+    const uniqueGameIds = [
+      ...new Set(records.map((record) => record.username)),
+    ];
+
+    const users = await User.find(
+      { gameId: { $in: uniqueGameIds } },
+      { gameId: 1, username: 1 }
+    ).lean();
+
+    const gameIdToUsername = {};
+    users.forEach((user) => {
+      gameIdToUsername[user.gameId] = user.username;
+    });
+
     // Aggregate turnover and win/loss for each player
     let playerSummary = {};
 
     records.forEach((record) => {
-      const username = record.username.toLowerCase();
+      const gameId = record.username;
+      const actualUsername = gameIdToUsername[gameId];
 
-      if (!playerSummary[username]) {
-        playerSummary[username] = { turnover: 0, winloss: 0 };
+      if (!actualUsername) {
+        console.warn(`MICRO GAMING LIVE User not found for gameId: ${gameId}`);
+        return;
       }
 
-      playerSummary[username].turnover += record.betamount || 0;
+      if (!playerSummary[actualUsername]) {
+        playerSummary[actualUsername] = { turnover: 0, winloss: 0 };
+      }
 
-      playerSummary[username].winloss +=
+      playerSummary[actualUsername].turnover += record.betamount || 0;
+
+      playerSummary[actualUsername].winloss +=
         (record.settleamount || 0) - (record.betamount || 0);
     });
 
@@ -1403,7 +1317,7 @@ router.get(
       const user = await User.findById(userId);
 
       const records = await SlotLiveMicroGamingModal.find({
-        username: user.username,
+        username: user.gameId,
         createdAt: {
           $gte: moment(new Date(startDate)).utc().toDate(),
           $lte: moment(new Date(endDate)).utc().toDate(),
@@ -1547,7 +1461,7 @@ router.get(
       const user = await User.findById(userId);
 
       const records = await SlotLiveMicroGamingModal.find({
-        username: user.username.toLowerCase(),
+        username: user.gameId,
         createdAt: {
           $gte: moment(new Date(startDate)).utc().toDate(),
           $lte: moment(new Date(endDate)).utc().toDate(),

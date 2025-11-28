@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const moment = require("moment");
 
-const PlayTechDataSchema = new mongoose.Schema(
+const GamePlaytechDataSchema = new mongoose.Schema(
   {
     gameNameEN: {
       type: String,
@@ -40,11 +40,11 @@ const PlayTechDataSchema = new mongoose.Schema(
   }
 );
 
-PlayTechDataSchema.index({ createdAt: -1 });
+GamePlaytechDataSchema.index({ createdAt: -1 });
 
-const PlaytechDataGameModal = mongoose.model(
-  "PlaytechDataGameModal",
-  PlayTechDataSchema
+const GamePlaytechGameModal = mongoose.model(
+  "GamePlaytechGameModal",
+  GamePlaytechDataSchema
 );
 
-module.exports = PlaytechDataGameModal;
+module.exports = GamePlaytechGameModal;

@@ -13,6 +13,9 @@ const liveSagamingSchema = new mongoose.Schema(
     betamount: {
       type: Number,
     },
+    validbetamount: {
+      type: Number,
+    },
     settleamount: {
       type: Number,
     },
@@ -32,10 +35,6 @@ const liveSagamingSchema = new mongoose.Schema(
       type: Boolean,
     },
     settle: {
-      type: Boolean,
-      default: false,
-    },
-    claimed: {
       type: Boolean,
       default: false,
     },

@@ -9,6 +9,9 @@ const GameCq9DataSchema = new mongoose.Schema(
     gameNameCN: {
       type: String,
     },
+    gameNameHK: {
+      type: String,
+    },
     imageUrlEN: {
       type: String,
     },
@@ -25,6 +28,10 @@ const GameCq9DataSchema = new mongoose.Schema(
       type: String,
     },
     hot: {
+      type: Boolean,
+      default: false,
+    },
+    maintenance: {
       type: Boolean,
       default: false,
     },

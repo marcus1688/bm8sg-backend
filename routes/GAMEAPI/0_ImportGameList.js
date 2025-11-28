@@ -16,29 +16,32 @@ const xlsx = require("xlsx");
 const fs = require("fs");
 const path = require("path");
 
-const GameAsiaGamingGameModal = require("../../models/slot_asiagamingDatabase.model");
-const GameBigGamingGameModal = require("../../models/slot_biggamingDatabase.model");
-const GameCq9GameModal = require("../../models/slot_cq9Database.model");
+const GameWalletLog = require("../../models/gamewalletlog.model");
+
+const GameEpicWinGameModal = require("../../models/slot_epicwinDatabase.model");
 const GameFachaiGameModal = require("../../models/slot_fachaiDatabase.model");
-const GameHabaneroGameModal = require("../../models/slot_habaneroDatabase.model");
-const GameHacksawGameModal = require("../../models/slot_hacksawDatabase.model");
-const GameJDBGameModal = require("../../models/slot_jdbDatabase.model");
+const GamePlayAceGameModal = require("../../models/slot_liveplayaceDatabase.model");
+const GameBNGGameModal = require("../../models/slot_bngDatabase.model");
+const GameHacksawGameModal = require("../../models/slot_dcthacksawDatabase.model");
+const GameRelaxGamingGameModal = require("../../models/slot_dctrelaxDatabase.model");
 const GameJILIGameModal = require("../../models/slot_jiliDatabase.model");
+const GameFastSpinGameModal = require("../../models/slot_fastspinDatabase.model");
+const GameYGRGameModal = require("../../models/slot_yesgetrichDatabase.model");
 const GameJokerGameModal = require("../../models/slot_jokerDatabase.model");
-const GameKiss918GameModal = require("../../models/slot_kiss918Database.model");
-const GameLFC888GameModal = require("../../models/slot_lfc888Database.model");
-const GamePPGameModal = require("../../models/slot_live_ppDatabase.model");
-const GameLive22GameModal = require("../../models/slot_live22Database.model");
-const GameMega888H5GameModal = require("../../models/slot_mega888h5Database.model");
-const GameMicroGamingGameModal = require("../../models/slot_microgamingDatabase.model");
-const GameNetentGameModal = require("../../models/slot_nententDatabase.model");
+const GameMicroGamingGameModal = require("../../models/slot_livemicrogamingDatabase.model");
+const GameFunkyGameModal = require("../../models/slot_funkyDatabase.model");
+const GameHabaneroGameModal = require("../../models/slot_habaneroDatabase.model");
+const GameCq9GameModal = require("../../models/slot_cq9Database.model");
+const GameBTGamingGameModal = require("../../models/slot_btgamingDatabase.model");
 const GameNextSpinGameModal = require("../../models/slot_nextspinDatabase.model");
-const GameNoLimitGameModal = require("../../models/slot_nolimitDatabase.model");
-const PlaytechDataGameModal = require("../../models/slot_playtechDatabase.model");
-const GameRedTigerGameModal = require("../../models/slot_redtigerDatabase.model");
+const GamePlayStarGameModal = require("../../models/slot_playstarDatabase.model");
+const GamePlaytechGameModal = require("../../models/slot_playtechDatabase.model");
+const GameVPowerGameModal = require("../../models/slot_vpowerDatabase.model");
+const GameRich88GameModal = require("../../models/slot_rich88Database.model");
+const GameRSGGameModal = require("../../models/slot_rsgDatabase.model");
+const GameAceWinGameModal = require("../../models/slot_acewinDatabase.model");
 const GameSpadeGamingGameModal = require("../../models/slot_spadegamingDatabase.model");
 
-const GameWalletLog = require("../../models/gamewalletlog.model");
 const { S3Client, ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const multer = require("multer");
 
@@ -58,8 +61,8 @@ function normalizeGameType(typeFromExcel) {
   const type = typeFromExcel.toLowerCase();
   if (type.includes("slot")) return "Slot";
   if (type.includes("fish")) return "Fishing";
-  if (type.includes("3")) return "Table";
-  if (type.includes("2")) return "Arcade";
+  if (type.includes("table")) return "Table";
+  if (type.includes("arcade")) return "Arcade";
   if (type.includes("other")) return "Other";
   if (type.includes("poker")) return "Poker";
   return null; // Not recognized
@@ -81,6 +84,167 @@ function parseRTP(rtpRaw) {
 
   return null;
 }
+
+router.post("/api/playtech/import-games", async (req, res) => {
+  try {
+    const importFilePath = path.join(
+      __dirname,
+      "../../public/spadegaming.json"
+    );
+    console.log(importFilePath);
+
+    // Check if file exists
+    if (!fs.existsSync(importFilePath)) {
+      return res.status(404).json({
+        success: false,
+        message: "Import file not found.",
+      });
+    }
+
+    // Read and parse the JSON file
+    const fileData = fs.readFileSync(importFilePath, "utf8");
+    const parsedData = JSON.parse(fileData); // Parse the JSON first
+
+    const gameList = parsedData; // Then access the games property
+
+    if (!gameList || !Array.isArray(gameList) || gameList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Import file is empty or invalid.",
+      });
+    }
+
+    console.log("pass");
+    console.log(`Found ${gameList.length} games to import`);
+    await GameSpadeGamingGameModal.deleteMany();
+    // Insert into MongoDB
+    await GameSpadeGamingGameModal.insertMany(gameList);
+
+    return res.status(200).json({
+      success: true,
+      message: `${gameList.length} game records imported successfully.`,
+    });
+  } catch (error) {
+    console.error("Error importing Playtech game data:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to import game data.",
+      error: error.message,
+    });
+  }
+});
+
+// compare playtech excel list see which game missing insert it only add missing game
+router.post("/api/playtechuseonly/168168", async (req, res) => {
+  try {
+    const filePath = path.join(
+      __dirname,
+      "../../public/Game_Import_Template.xlsx"
+    );
+    const workbook = xlsx.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json(sheet);
+
+    const excelGames = [];
+
+    for (const row of rows) {
+      const normalizedType = normalizeGameType(row["Game Type"]);
+      if (!normalizedType) {
+        console.log("Skipping invalid game type:", row["Game Type"]);
+        continue;
+      }
+
+      const rtpValue = parseRTP(
+        row["RTP "] || row["RTP\n"] || row["RTP \n返還率"]
+      );
+
+      excelGames.push({
+        gameNameEN: row["Game Name"],
+        gameNameCN: row["Simplified Chinese"],
+        gameNameHK: row["Traditional Chinese"],
+        gameNameID: row["Indonesia"],
+        gameNameMS: row["Malay"],
+        gameID: row["Game Code"],
+        gameType: normalizedType,
+        rtpRate: rtpValue,
+      });
+    }
+
+    if (excelGames.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No valid games in Excel file." });
+    }
+
+    // Get all games from database
+    const dbGames = await GamePlaytechGameModal.find({}).lean();
+
+    // Extract game codes from Excel
+    const excelGameCodes = new Set(
+      excelGames.map((game) => game.gameID?.toString())
+    );
+
+    // Extract game IDs from database
+    const dbGameIds = new Set(dbGames.map((game) => game.gameID?.toString()));
+
+    // Find missing games (in Excel but not in DB)
+    const missingGames = excelGames.filter(
+      (game) => !dbGameIds.has(game.gameID?.toString())
+    );
+
+    // Find extra games (in DB but not in Excel)
+    const extraGameIds = dbGames
+      .filter((game) => !excelGameCodes.has(game.gameID?.toString()))
+      .map((game) => game._id);
+
+    // Insert missing games
+    let insertedCount = 0;
+    if (missingGames.length > 0) {
+      const insertResult = await GamePlaytechGameModal.insertMany(missingGames);
+      insertedCount = insertResult.length;
+    }
+
+    // Set maintenance to true for extra games
+    let maintenanceUpdatedCount = 0;
+    if (extraGameIds.length > 0) {
+      const updateResult = await GamePlaytechGameModal.updateMany(
+        { _id: { $in: extraGameIds } },
+        { $set: { maintenance: true } }
+      );
+      maintenanceUpdatedCount = updateResult.modifiedCount;
+    }
+
+    // Format results
+    const missingGamesFormatted = missingGames.map((game) => ({
+      gameCode: game.gameID,
+      gameName: game.gameNameEN,
+      gameNameCN: game.gameNameCN,
+      gameType: game.gameType,
+      rtpRate: game.rtpRate,
+    }));
+
+    res.status(200).json({
+      success: true,
+      summary: {
+        excelTotal: excelGames.length,
+        databaseTotal: dbGames.length,
+        missingGamesInserted: insertedCount,
+        extraGamesSetToMaintenance: maintenanceUpdatedCount,
+      },
+      details: {
+        insertedGames: missingGamesFormatted,
+        maintenanceCount: extraGameIds.length,
+      },
+      message: "Game import and maintenance update completed successfully",
+    });
+  } catch (error) {
+    console.error("Import Games Error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error importing games" });
+  }
+});
 
 router.post("/api/importGameList/168168", async (req, res) => {
   try {
@@ -109,6 +273,7 @@ router.post("/api/importGameList/168168", async (req, res) => {
       games.push({
         gameNameEN: row["Game Name"],
         gameNameCN: row["Simplified Chinese"],
+        gameNameHK: row["Traditional Chinese"],
         gameID: row["Game Code"],
         gameType: normalizedType,
         rtpRate: rtpValue,
@@ -121,7 +286,7 @@ router.post("/api/importGameList/168168", async (req, res) => {
         .json({ success: false, message: "No valid games to import." });
     }
 
-    await GameHacksawGameModal.insertMany(games);
+    await GameAceWinGameModal.insertMany(games);
     res.status(200).json({
       success: true,
       imported: games.length,
@@ -135,320 +300,211 @@ router.post("/api/importGameList/168168", async (req, res) => {
   }
 });
 
-// router.post("/api/importImgUrl/168168", async (req, res) => {
-//   try {
-//     const bucket = "allgameassets";
-//     const basePathEN = "habanero/en/";
-//     const basePathCN = "habanero/zh/";
-
-//     // Get all games from the database
-//     const allGames = await GameHabaneroGameModal.find(
-//       {
-//         $or: [
-//           { imageUrlEN: { $exists: false } },
-//           { imageUrlEN: "" },
-//           { imageUrlCN: { $exists: false } },
-//           { imageUrlCN: "" },
-//         ],
-//       },
-//       { gameID: 1 }
-//     );
-
-//     if (!allGames.length) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "No games found in database to sync",
-//       });
-//     }
-
-//     // Get all objects from S3 for both EN and CN paths using AWS SDK v3
-//     const [enObjectsResult, cnObjectsResult] = await Promise.all([
-//       s3Client.send(
-//         new ListObjectsV2Command({
-//           Bucket: bucket,
-//           Prefix: basePathEN,
-//         })
-//       ),
-//       s3Client.send(
-//         new ListObjectsV2Command({
-//           Bucket: bucket,
-//           Prefix: basePathCN,
-//         })
-//       ),
-//     ]);
-
-//     // Extract just the filenames and create lookup maps
-//     const enImageMap = {};
-//     const cnImageMap = {};
-
-//     // Process EN images
-//     enObjectsResult.Contents.forEach((object) => {
-//       const filename = object.Key.split("/").pop(); // Get filename without path
-//       const gameId = filename.split("_")[0]; // Extract gameId part
-
-//       if (gameId) {
-//         enImageMap[
-//           gameId
-//         ] = `https://${bucket}.s3.ap-southeast-1.amazonaws.com/${object.Key}`;
-//       }
-//     });
-
-//     // Process CN images
-//     cnObjectsResult.Contents.forEach((object) => {
-//       const filename = object.Key.split("/").pop(); // Get filename without path
-//       const gameId = filename.split("_")[0]; // Extract gameId part
-
-//       if (gameId) {
-//         cnImageMap[
-//           gameId
-//         ] = `https://${bucket}.s3.ap-southeast-1.amazonaws.com/${object.Key}`;
-//       }
-//     });
-
-//     // Update each game document with the corresponding image URLs
-//     const updatePromises = allGames.map(async (game) => {
-//       const gameId = game.gameID;
-//       const updates = {};
-
-//       if (enImageMap[gameId]) {
-//         updates.imageUrlEN = enImageMap[gameId];
-//       }
-
-//       if (cnImageMap[gameId]) {
-//         updates.imageUrlCN = cnImageMap[gameId];
-//       }
-
-//       // Only update if we found at least one matching image
-//       if (Object.keys(updates).length > 0) {
-//         return GameHabaneroGameModal.findByIdAndUpdate(
-//           game._id,
-//           { $set: updates },
-//           { new: true }
-//         );
-//       }
-//       return null;
-//     });
-
-//     // Execute all updates
-//     const results = await Promise.all(updatePromises);
-
-//     // Count successful updates (non-null results)
-//     const updatedCount = results.filter((result) => result !== null).length;
-
-//     return res.status(200).json({
-//       success: true,
-//       message: `Successfully synced images for ${updatedCount} games`,
-//       totalGames: allGames.length,
-//       updatedGames: updatedCount,
-//     });
-//   } catch (error) {
-//     console.error("Error syncing Kiss918 game images:", error);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to sync game images",
-//       error: error.message,
-//     });
-//   }
-// });
-router.post("/api/importImgUrl/168168", async (req, res) => {
+router.post("/api/importImgUrl/acewin", async (req, res) => {
   try {
-    const bucket = "allgameassets";
-    const basePathEN = "hacksaw/en/";
+    const bucket = "allgameslist";
+    const basePathEN = "acewin/en/";
+    const basePathCN = "acewin/zh/";
 
-    console.log("Starting image URL sync for Hacksaw games...");
-
-    // Get all games from the database that need image URLs
-    const allGames = await GameHacksawGameModal.find(
+    // Get all games from the database that need images
+    const allGames = await GameAceWinGameModal.find(
       {
         $or: [
           { imageUrlEN: { $exists: false } },
           { imageUrlEN: "" },
-          { imageUrlEN: null },
+          { imageUrlCN: { $exists: false } },
+          { imageUrlCN: "" },
         ],
+        gameID: { $exists: true, $ne: "" },
       },
-      { gameID: 1, gameNameEN: 1 }
-    );
+      { gameID: 1, gameNameEN: 1, _id: 1 }
+    ).lean();
 
     if (!allGames.length) {
       return res.status(404).json({
         success: false,
-        message: "No games found in database that need image URLs",
+        message: "No games found in database to sync",
       });
     }
 
-    console.log(`Found ${allGames.length} games that need image URLs`);
+    console.log(`Found ${allGames.length} games needing image sync`);
 
-    // Get all objects from S3 for EN path
-    const enObjectsResult = await s3Client.send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: basePathEN,
-      })
-    );
+    /**
+     * Extract GameID from AWS filename
+     * Format: "SLOT_1002_木乃伊来了呀!_MummyMia_500X500_EN.png"
+     * Returns: "1002"
+     */
+    const extractGameIDFromFilename = (filename) => {
+      console.log(`  Processing filename: ${filename}`);
 
-    if (!enObjectsResult.Contents || enObjectsResult.Contents.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No images found in S3 bucket",
-      });
-    }
+      // Split by underscore
+      const parts = filename.split("_");
 
-    console.log(`Found ${enObjectsResult.Contents.length} images in S3`);
-
-    // Create lookup map for EN images
-    const enImageMap = {};
-
-    // Function to extract gameID from filename (everything before first underscore)
-    function extractGameIdFromFilename(filename) {
-      const match = filename.match(/^(\d+)_/); // Match digits before first underscore
-      return match ? match[1] : null;
-    }
-
-    // Process EN images and create mapping
-    enObjectsResult.Contents.forEach((object) => {
-      const filename = object.Key.split("/").pop(); // Get filename from full path
-      const gameId = extractGameIdFromFilename(filename);
-
-      if (gameId) {
-        const imageUrl = `https://${bucket}.s3.ap-southeast-1.amazonaws.com/${object.Key}`;
-        enImageMap[gameId] = imageUrl;
-        console.log(`Mapped gameID ${gameId} to ${filename}`);
+      // GameID is between first and second underscore (parts[1])
+      if (parts.length >= 2) {
+        const gameID = parts[1];
+        console.log(`  Extracted GameID: "${gameID}"`);
+        return gameID;
       }
-    });
 
-    console.log(`Created mapping for ${Object.keys(enImageMap).length} images`);
+      console.log(`  ❌ Could not extract GameID from: ${filename}`);
+      return null;
+    };
 
-    // Update games with matching image URLs
-    const updatePromises = [];
-    const matchedGames = [];
-    const unmatchedGames = [];
+    // Get all objects from S3 for both language paths
+    const [enObjectsResult, cnObjectsResult] = await Promise.all([
+      s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: basePathEN,
+        })
+      ),
+      s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: basePathCN,
+        })
+      ),
+    ]);
 
-    allGames.forEach((game) => {
-      const gameId = game.gameID;
+    // Create lookup maps based on GameID
+    const enImageMap = {};
+    const cnImageMap = {};
 
-      if (enImageMap[gameId]) {
-        // Found matching image
-        matchedGames.push({
-          gameID: gameId,
-          gameName: game.gameNameEN,
-          imageUrl: enImageMap[gameId],
-        });
+    console.log("\n=== Processing EN Images ===");
+    // Process EN images
+    if (enObjectsResult.Contents) {
+      enObjectsResult.Contents.forEach((object) => {
+        const filename = object.Key.split("/").pop();
 
-        updatePromises.push(
-          GameHacksawGameModal.findByIdAndUpdate(
-            game._id,
-            {
-              $set: {
-                imageUrlEN: enImageMap[gameId],
-                imageUrlCN: enImageMap[gameId], // Use same image for CN since only EN available
-              },
-            },
-            { new: true }
-          )
+        // Only process image files
+        if (!filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          console.log(`  Skipping non-image file: ${filename}`);
+          return;
+        }
+
+        const gameID = extractGameIDFromFilename(filename);
+
+        if (gameID) {
+          const imageUrl = `https://${bucket}.s3.ap-southeast-1.amazonaws.com/${object.Key}`;
+          enImageMap[gameID] = imageUrl;
+          console.log(`  ✅ EN Mapped GameID "${gameID}" -> ${imageUrl}`);
+        }
+      });
+    }
+
+    console.log("\n=== Processing CN Images ===");
+    // Process CN images
+    if (cnObjectsResult.Contents) {
+      cnObjectsResult.Contents.forEach((object) => {
+        const filename = object.Key.split("/").pop();
+
+        // Only process image files
+        if (!filename.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          console.log(`  Skipping non-image file: ${filename}`);
+          return;
+        }
+
+        const gameID = extractGameIDFromFilename(filename);
+
+        if (gameID) {
+          const imageUrl = `https://${bucket}.s3.ap-southeast-1.amazonaws.com/${object.Key}`;
+          cnImageMap[gameID] = imageUrl;
+          console.log(`  ✅ CN Mapped GameID "${gameID}" -> ${imageUrl}`);
+        }
+      });
+    }
+
+    console.log(`\nEN Image Map: ${Object.keys(enImageMap).length} entries`);
+    console.log(`CN Image Map: ${Object.keys(cnImageMap).length} entries`);
+
+    // Update each game document with the corresponding image URLs
+    const updatePromises = allGames.map(async (game) => {
+      const updates = {};
+
+      console.log(
+        `\nProcessing game: gameNameEN="${game.gameNameEN}", gameID="${game.gameID}"`
+      );
+
+      // Match images using GameID
+      if (enImageMap[game.gameID]) {
+        updates.imageUrlEN = enImageMap[game.gameID];
+        console.log(`  ✅ EN image found: ${enImageMap[game.gameID]}`);
+      } else {
+        console.log(`  ❌ EN image NOT found for GameID: ${game.gameID}`);
+      }
+
+      if (cnImageMap[game.gameID]) {
+        updates.imageUrlCN = cnImageMap[game.gameID];
+        console.log(`  ✅ CN image found: ${cnImageMap[game.gameID]}`);
+      } else {
+        console.log(`  ❌ CN image NOT found for GameID: ${game.gameID}`);
+      }
+
+      // Only update if we found at least one matching image
+      if (Object.keys(updates).length > 0) {
+        console.log(
+          `  ✅ Updating game "${game.gameNameEN}" (${game.gameID}) with ${
+            Object.keys(updates).length
+          } image(s)`
+        );
+        return GameAceWinGameModal.findByIdAndUpdate(
+          game._id,
+          { $set: updates },
+          { new: true }
         );
       } else {
-        // No matching image found
-        unmatchedGames.push({
-          gameID: gameId,
-          gameName: game.gameNameEN,
-        });
+        console.log(
+          `  ⚠️ No images found for game "${game.gameNameEN}" (${game.gameID})`
+        );
       }
+
+      return null;
     });
 
     // Execute all updates
-    console.log(`Updating ${updatePromises.length} games with image URLs...`);
     const results = await Promise.all(updatePromises);
 
-    // Log results
-    console.log("=== IMAGE SYNC COMPLETED ===");
-    console.log(`Total games processed: ${allGames.length}`);
-    console.log(`Games updated with images: ${results.length}`);
-    console.log(`Games without matching images: ${unmatchedGames.length}`);
+    // Count successful updates
+    const updatedCount = results.filter((result) => result !== null).length;
 
-    if (matchedGames.length > 0) {
-      console.log("\n=== SUCCESSFULLY UPDATED GAMES ===");
-      matchedGames.forEach((game) => {
-        console.log(`✅ ${game.gameID}: ${game.gameName}`);
-      });
-    }
+    // Get examples of unmatched games
+    const unmatchedGames = allGames
+      .filter((game, index) => results[index] === null)
+      .slice(0, 10)
+      .map((game) => ({
+        gameNameEN: game.gameNameEN,
+        gameID: game.gameID,
+      }));
 
-    if (unmatchedGames.length > 0) {
-      console.log("\n=== GAMES WITHOUT MATCHING IMAGES ===");
-      unmatchedGames.forEach((game) => {
-        console.log(`❌ ${game.gameID}: ${game.gameName}`);
-      });
-    }
+    // Get examples of matched games
+    const matchedGames = results
+      .filter((result) => result !== null)
+      .slice(0, 5)
+      .map((game) => ({
+        gameNameEN: game.gameNameEN,
+        gameID: game.gameID,
+        imageUrlEN: game.imageUrlEN || "Not set",
+        imageUrlCN: game.imageUrlCN || "Not set",
+      }));
 
     return res.status(200).json({
       success: true,
-      message: `Successfully synced images for ${results.length} games`,
-      summary: {
-        totalGamesProcessed: allGames.length,
-        imagesFoundInS3: Object.keys(enImageMap).length,
-        gamesUpdated: results.length,
-        gamesUnmatched: unmatchedGames.length,
-      },
-      details: {
-        updatedGames: matchedGames,
-        unmatchedGames: unmatchedGames,
-      },
+      message: `Successfully synced images for ${updatedCount} games`,
+      totalGames: allGames.length,
+      updatedGames: updatedCount,
+      unmatchedGames: allGames.length - updatedCount,
+      enImagesAvailable: Object.keys(enImageMap).length,
+      cnImagesAvailable: Object.keys(cnImageMap).length,
+      matchedExamples: matchedGames,
+      unmatchedExamples: unmatchedGames,
     });
   } catch (error) {
-    console.error("Error syncing Hacksaw game images:", error);
+    console.error("Error syncing AceWin images:", error);
 
     return res.status(500).json({
       success: false,
       message: "Failed to sync game images",
-      error: error.message,
-    });
-  }
-});
-
-// Additional route to check current image status
-router.get("/api/checkImageStatus/hacksaw", async (req, res) => {
-  try {
-    const totalGames = await GameHacksawGameModal.countDocuments();
-
-    const gamesWithImages = await GameHacksawGameModal.countDocuments({
-      $and: [{ imageUrlEN: { $exists: true, $ne: "", $ne: null } }],
-    });
-
-    const gamesWithoutImages = await GameHacksawGameModal.countDocuments({
-      $or: [
-        { imageUrlEN: { $exists: false } },
-        { imageUrlEN: "" },
-        { imageUrlEN: null },
-      ],
-    });
-
-    // Get some examples of games without images
-    const sampleGamesWithoutImages = await GameHacksawGameModal.find(
-      {
-        $or: [
-          { imageUrlEN: { $exists: false } },
-          { imageUrlEN: "" },
-          { imageUrlEN: null },
-        ],
-      },
-      { gameID: 1, gameNameEN: 1, imageUrlEN: 1 }
-    ).limit(10);
-
-    return res.status(200).json({
-      success: true,
-      statistics: {
-        totalGames: totalGames,
-        gamesWithImages: gamesWithImages,
-        gamesWithoutImages: gamesWithoutImages,
-        completionPercentage: Math.round((gamesWithImages / totalGames) * 100),
-      },
-      sampleGamesWithoutImages: sampleGamesWithoutImages,
-    });
-  } catch (error) {
-    console.error("Error checking image status:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to check image status",
       error: error.message,
     });
   }
@@ -688,8 +744,14 @@ router.post("/api/jili/updateMalayName", async (req, res) => {
 router.post("/api/jili/getgamelistMissing", async (req, res) => {
   try {
     // Fetch all games from the database (or add filters as needed)
-    const missingImageGames = await GameHacksawGameModal.find({
-      $or: [{ imageUrlEN: { $exists: false } }, { imageUrlEN: "" }],
+    const missingImageGames = await GameAceWinGameModal.find({
+      $or: [
+        { imageUrlEN: { $exists: false } },
+        { imageUrlEN: "" },
+        { imageUrlCN: { $exists: false } },
+        { imageUrlCN: "" },
+      ],
+      maintenance: false,
     });
     console.log(missingImageGames.length);
     return res.status(200).json({
@@ -711,7 +773,7 @@ router.post("/api/jili/getgamelistMissing", async (req, res) => {
 
 router.post("/api/playtech/export-games", async (req, res) => {
   try {
-    const allGames = await GameLFC888GameModal.find().lean(); // lean() for plain JS objects
+    const allGames = await GamePlaytechGameModal.find().lean(); // lean() for plain JS objects
 
     if (!allGames || allGames.length === 0) {
       return res.status(404).json({
@@ -721,7 +783,7 @@ router.post("/api/playtech/export-games", async (req, res) => {
     }
 
     // Create a temporary file
-    const exportFilePath = path.join(__dirname, "../../exports/lfc777.json");
+    const exportFilePath = path.join(__dirname, "../../exports/playtech.json");
 
     // Ensure export directory exists
     const exportDir = path.dirname(exportFilePath);
@@ -732,7 +794,7 @@ router.post("/api/playtech/export-games", async (req, res) => {
     fs.writeFileSync(exportFilePath, JSON.stringify(allGames, null, 2), "utf8");
 
     // Send file for download
-    res.download(exportFilePath, "playtech_games_export.json", (err) => {
+    res.download(exportFilePath, "megah5.json", (err) => {
       if (err) {
         console.error("Error sending file:", err);
         res.status(500).json({
@@ -753,118 +815,39 @@ router.post("/api/playtech/export-games", async (req, res) => {
   }
 });
 
-router.post("/api/hacksaw/import-games", async (req, res) => {
-  try {
-    // Path to your exported JSON file
-    const filePath = path.join(__dirname, "../../public/habanero.json");
-
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        success: false,
-        message: "Export file not found. Please export the games first.",
-      });
-    }
-
-    // Read the JSON file
-    const fileContent = fs.readFileSync(filePath, "utf8");
-    const gameData = JSON.parse(fileContent);
-
-    // Clear existing games and insert new ones
-    await GameHabaneroGameModal.deleteMany({});
-    const result = await GameHabaneroGameModal.insertMany(gameData);
-
-    console.log(`Successfully imported ${result.length} games`);
-
-    return res.status(200).json({
-      success: true,
-      message: {
-        en: `Successfully imported ${result.length} games.`,
-        zh: `成功导入 ${result.length} 个游戏。`,
-        ms: `Berjaya mengimport ${result.length} permainan.`,
-      },
-      totalImported: result.length,
-    });
-  } catch (error) {
-    console.error("Error importing games:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to import games.",
-      error: error.message,
-    });
-  }
-});
-
-router.post("/api/playtech/import-games", async (req, res) => {
-  try {
-    const importFilePath = path.join(
-      __dirname,
-      "../../public/playtechupdate.json"
-    );
-    await PlaytechDataGameModal.deleteMany({});
-    // Check if file exists
-    if (!fs.existsSync(importFilePath)) {
-      return res.status(404).json({
-        success: false,
-        message: "Import file not found.",
-      });
-    }
-
-    // Read and parse the JSON file
-    const fileData = fs.readFileSync(importFilePath, "utf8");
-    const parsedData = JSON.parse(fileData);
-    const gameList = parsedData.gameList;
-    if (!gameList || !Array.isArray(gameList) || gameList.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Import file is empty or invalid.",
-      });
-    }
-
-    // Insert into MongoDB
-    await PlaytechDataGameModal.insertMany(gameList);
-
-    return res.status(200).json({
-      success: true,
-      message: `${gameList.length} game records imported successfully.`,
-    });
-  } catch (error) {
-    console.error("Error importing Playtech game data:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to import game data.",
-      error: error.message,
-    });
-  }
-});
-
 router.post("/admin/api/replace-s3-with-cloudfront", async (req, res) => {
   try {
     const CLOUDFRONT_BASE_URL = "https://d2bdzvbz2cmjb8.cloudfront.net";
     const S3_PREFIX = "https://allgameslist.s3.ap-southeast-1.amazonaws.com";
 
     const modelsToUpdate = [
-      GameAsiaGamingGameModal,
-      GameBigGamingGameModal,
-      GameCq9GameModal,
-      GameFachaiGameModal,
-      GameHabaneroGameModal,
-      GameHacksawGameModal,
-      GameJDBGameModal,
-      GameJILIGameModal,
-      GameJokerGameModal,
-      GameKiss918GameModal,
-      GameLFC888GameModal,
-      GamePPGameModal,
-      GameLive22GameModal,
-      GameMega888H5GameModal,
-      GameMicroGamingGameModal,
-      GameNetentGameModal,
-      GameNextSpinGameModal,
-      GameNoLimitGameModal,
-      PlaytechDataGameModal,
-      GameRedTigerGameModal,
-      GameSpadeGamingGameModal,
+      // GameApolloGameModal,
+      // GameClotPlayGameModal,
+      // GameCq9GameModal,
+      // GameEpicWinGameModal,
+      // GameFachaiGameModal,
+      // GameJILIGameModal,
+      // GameMicroGamingGameModal,
+      // GamePPGameModal,
+      // GameLive22GameModal,
+      // GameMegah5GameModal,
+      // GameNinjaGameModal,
+      // GamePlaytechGameModal,
+      // GameSimplePlayGameModal,
+      // GameUUSLOTGameModal,
+      // GameVaGamingGameModal,
+      // GameRichGamingGameModal,
+      // GameWfGamingGameModal,
+      // GameRich88GameModal,
+      // GameDragoonSoftGameModal,
+      // GameDragonGamingGameModal,
+      // GameYLGamingGameModal,
+      // GameYGRGameModal,
+      // GameHacksawGameModal,
+      // GameRelaxGamingGameModal,
+      GameAceWinGameModal,
+      // GamePlaytechGameModal,
+      // GamePegasusGameModal,
     ];
 
     let totalUpdated = 0;
@@ -882,7 +865,7 @@ router.post("/admin/api/replace-s3-with-cloudfront", async (req, res) => {
           "imageUrlCN",
           "imageUrlID",
           "imageUrlHK",
-          "imageUrlMS",
+          "imageUrlTH",
         ];
 
         for (const field of fields) {
@@ -912,9 +895,6 @@ router.post("/admin/api/replace-s3-with-cloudfront", async (req, res) => {
             gameID: record.gameID,
             imageUrlEN: record.imageUrlEN,
             imageUrlCN: record.imageUrlCN,
-            imageUrlID: record.imageUrlID,
-            imageUrlHK: record.imageUrlHK,
-            imageUrlMS: record.imageUrlMS,
           });
         }
       }
