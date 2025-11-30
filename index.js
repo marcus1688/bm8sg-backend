@@ -76,6 +76,8 @@ const slotYGRRouter = require("./routes/GAMEAPI/slot_yesgetrich");
 const slotVPowerRouter = require("./routes/GAMEAPI/slot_vpower");
 const slotBNGRouter = require("./routes/GAMEAPI/slot_bng");
 
+const esportTFGamingRouter = require("./routes/GAMEAPI/esport_tfgaming");
+
 const paymentGatewaySKL99Router = require("./routes/PaymentGateway/skl99");
 const paymentGatewaySurePayRouter = require("./routes/PaymentGateway/surepay");
 const paymentGatewayFPayRouter = require("./routes/PaymentGateway/fpay");
@@ -845,6 +847,8 @@ app.use(slotAceWinRouter);
 app.use(slotYGRRouter);
 app.use(slotVPowerRouter);
 app.use(slotBNGRouter);
+
+app.use(esportTFGamingRouter);
 
 app.use(paymentGatewaySKL99Router);
 app.use(paymentGatewaySurePayRouter);

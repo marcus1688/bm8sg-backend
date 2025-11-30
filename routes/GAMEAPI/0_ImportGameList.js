@@ -266,7 +266,7 @@ router.post("/api/importGameList/168168", async (req, res) => {
         .json({ success: false, message: "No valid games to import." });
     }
 
-    await GameAceWinGameModal.insertMany(games);
+    await GameBNGGameModal.insertMany(games);
     res.status(200).json({
       success: true,
       imported: games.length,
@@ -724,12 +724,12 @@ router.post("/api/jili/updateMalayName", async (req, res) => {
 router.post("/api/jili/getgamelistMissing", async (req, res) => {
   try {
     // Fetch all games from the database (or add filters as needed)
-    const missingImageGames = await GameAceWinGameModal.find({
+    const missingImageGames = await GameBNGGameModal.find({
       $or: [
         { imageUrlEN: { $exists: false } },
         { imageUrlEN: "" },
-        { imageUrlCN: { $exists: false } },
-        { imageUrlCN: "" },
+        // { imageUrlCN: { $exists: false } },
+        // { imageUrlCN: "" },
       ],
       maintenance: false,
     });
@@ -825,7 +825,7 @@ router.post("/admin/api/replace-s3-with-cloudfront", async (req, res) => {
       // GameYGRGameModal,
       // GameHacksawGameModal,
       // GameRelaxGamingGameModal,
-      GameAceWinGameModal,
+      GameBNGGameModal,
       // GamePlaytechGameModal,
       // GamePegasusGameModal,
     ];

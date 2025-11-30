@@ -304,6 +304,7 @@ const userSchema = new mongoose.Schema(
       yesgetrichslot: { type: gameLockSchema, default: () => ({}) },
       vpower: { type: gameLockSchema, default: () => ({}) },
       bng: { type: gameLockSchema, default: () => ({}) },
+      tfgaming: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -375,6 +376,9 @@ const userSchema = new mongoose.Schema(
     bngbalanceVersion: {
       type: Number,
       default: 0,
+    },
+    tfGamingGameToken: {
+      type: String,
     },
   },
   {

@@ -47,6 +47,8 @@ const SlotAceWinModal = require("../models/slot_acewin.model");
 const SlotYGRModal = require("../models/slot_yesgetrich.model");
 const SlotVPowerModal = require("../models/slot_vpower.model");
 
+const EsportTfGamingModal = require("../models/esport_tfgaming.model");
+
 const UserWalletLog = require("../models/userwalletlog.model");
 const Bonus = require("../models/bonus.model");
 const querystring = require("querystring");
@@ -5947,6 +5949,12 @@ router.get(
 
           getAllUsersTurnover(SlotVPowerModal, {
             settle: true,
+          }),
+
+          // TF Gaming
+          getAllUsersTurnover(EsportTfGamingModal, {
+            settle: true,
+            cancel: { $ne: true },
           }),
         ];
 
