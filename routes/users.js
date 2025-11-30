@@ -50,6 +50,8 @@ const SlotBNGModal = require("../models/slot_bng.model");
 
 const EsportTfGamingModal = require("../models/esport_tfgaming.model");
 
+const LiveSaGamingModal = require("../models/live_sagaming.model");
+
 const UserWalletLog = require("../models/userwalletlog.model");
 const Bonus = require("../models/bonus.model");
 const querystring = require("querystring");
@@ -5960,6 +5962,12 @@ router.get(
 
           // BNG
           getAllUsersTurnover(SlotBNGModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // SA Gaming
+          getAllUsersTurnover(LiveSaGamingModal, {
             cancel: { $ne: true },
             settle: true,
           }),

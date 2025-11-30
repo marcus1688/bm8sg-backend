@@ -305,6 +305,7 @@ const userSchema = new mongoose.Schema(
       vpower: { type: gameLockSchema, default: () => ({}) },
       bng: { type: gameLockSchema, default: () => ({}) },
       tfgaming: { type: gameLockSchema, default: () => ({}) },
+      sagaming: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
