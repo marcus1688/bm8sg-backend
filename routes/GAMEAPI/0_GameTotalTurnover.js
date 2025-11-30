@@ -176,12 +176,12 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
           ? promiseResults[0].value
           : { turnover: 0, winLoss: 0 },
       btgaming:
-        promiseResults[22].status === "fulfilled"
-          ? promiseResults[22].value
+        promiseResults[1].status === "fulfilled"
+          ? promiseResults[1].value
           : { turnover: 0, winLoss: 0 },
       acewin:
-        promiseResults[23].status === "fulfilled"
-          ? promiseResults[23].value
+        promiseResults[2].status === "fulfilled"
+          ? promiseResults[2].value
           : { turnover: 0, winLoss: 0 },
     };
     // Calculate total turnover and win loss
