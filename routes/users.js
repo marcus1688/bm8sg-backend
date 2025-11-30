@@ -4358,7 +4358,7 @@ router.get(
     try {
       const userId = req.params.userId;
       const user = await User.findById(userId).select(
-        " username totalturnover  fullname email phonenumber status viplevel bankAccounts wallet createdAt lastLogin lastLoginIp registerIp dob wallet withdrawlock rebate turnover winloss gamewallet rebate totaldeposit totalwithdraw lastdepositdate totalbonus gameStatus luckySpinCount remark referralCode referralBy duplicateIP gameStatus gameLock positionTaking gameId mega888GameID mega888GamePW pastMega888GameID pastMega888GamePW"
+        " username totalturnover  fullname email phonenumber status viplevel bankAccounts wallet createdAt lastLogin lastLoginIp registerIp dob wallet withdrawlock rebate turnover winloss gamewallet rebate totaldeposit totalwithdraw lastdepositdate totalbonus gameStatus luckySpinCount remark referralCode referralBy duplicateIP gameStatus gameLock positionTaking gameId mega888GameID mega888GamePW pastMega888GameID pastMega888GamePW luckySpinPoints"
       );
       if (!user) {
         return res.status(200).json({
@@ -4405,7 +4405,7 @@ router.put(
         phonenumber,
         dob,
         viplevel,
-        luckySpinCount,
+        luckySpinPoints,
         totalturnover,
         positionTaking,
         referralByUsername,
@@ -4440,7 +4440,7 @@ router.put(
             dob,
             viplevel,
             ...(shouldUpdateLowestVip && { lowestviplevel: viplevel }),
-            luckySpinCount,
+            luckySpinPoints,
             totalturnover,
             positionTaking,
           },
