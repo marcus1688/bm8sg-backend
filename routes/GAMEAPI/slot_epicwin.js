@@ -19,9 +19,9 @@ const GameEpicWinGameModal = require("../../models/slot_epicwinDatabase.model");
 
 require("dotenv").config();
 
-const epicWinOperatorID = "epwnEGM8MYRMYR";
+const epicWinOperatorID = "epwnEGM8SGDSGD";
 const epicWinSecret = process.env.EPICWIN_SECRET;
-const webURL = "https://www.bm8my.vip/";
+const webURL = "https://www.bm8sg.vip/";
 const epicWinAPIURL = "https://smapi.eptech88.com/api/opgateway/v1/op/";
 
 function roundToTwoDecimals(num) {
@@ -530,7 +530,7 @@ router.post("/api/epicwin/launchGame", authenticateToken, async (req, res) => {
       PlayerId: user.gameId,
       Ip: clientIp,
       GameCode: gameCode,
-      Currency: "MYR",
+      Currency: "SGD",
       Lang: lang,
       RedirectUrl: webURL,
       AuthToken: token,
