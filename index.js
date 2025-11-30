@@ -70,40 +70,8 @@ const LuckyDrawRouter = require("./routes/luckydraw");
 const MissionRouter = require("./routes/mission");
 
 const slotEpicWinRouter = require("./routes/GAMEAPI/slot_epicwin");
-const slotFachaiRouter = require("./routes/GAMEAPI/slot_fachai");
-const slotLivePlayaceRouter = require("./routes/GAMEAPI/slot_liveplayace");
-const slotBNGRouter = require("./routes/GAMEAPI/slot_bng");
-const slotDCTGameRouter = require("./routes/GAMEAPI/slot_dctgame");
-const slotJiliRouter = require("./routes/GAMEAPI/slot_jili");
-const slotFastspinRouter = require("./routes/GAMEAPI/slot_fastspin");
-const slotYesGetRichRouter = require("./routes/GAMEAPI/slot_yesgetrich");
-const slotJokerRouter = require("./routes/GAMEAPI/slot_joker");
-const slotLiveMicroGamingRouter = require("./routes/GAMEAPI/slot_livemicrogaming");
-const slotFunkyRouter = require("./routes/GAMEAPI/slot_funky");
-const slotHabaneroRouter = require("./routes/GAMEAPI/slot_habanero");
-const slotCQ9Router = require("./routes/GAMEAPI/slot_cq9");
 const slotBTGamingRouter = require("./routes/GAMEAPI/slot_btgaming");
-const slotNextSpinRouter = require("./routes/GAMEAPI/slot_nextspin");
-const slotPlayStarRouter = require("./routes/GAMEAPI/slot_playstar");
-const slotLivePlaytechRouter = require("./routes/GAMEAPI/slot_liveplaytech");
-const slotVpowerRouter = require("./routes/GAMEAPI/slot_vpower");
-const slotRich88Router = require("./routes/GAMEAPI/slot_rich88");
-const slotRSGRouter = require("./routes/GAMEAPI/slot_rsg");
 const slotAceWinRouter = require("./routes/GAMEAPI/slot_acewin");
-const slotSpadeGamingRouter = require("./routes/GAMEAPI/slot_spadegaming");
-const slotMega888Router = require("./routes/GAMEAPI/slot_mega888");
-const slotMega888LoginRouter = require("./routes/GAMEAPI/slot_mega888login");
-
-const sportSBOBETRouter = require("./routes/GAMEAPI/sport_sbobet");
-const sportM9BetRouter = require("./routes/GAMEAPI/sports_m9bet");
-
-const esportTFGamingRouter = require("./routes/GAMEAPI/esport_tfgaming");
-
-const liveSaGamingRouter = require("./routes/GAMEAPI/live_sagaming");
-const liveYeebetRouter = require("./routes/GAMEAPI/live_yeebet");
-const liveWECasinoRouter = require("./routes/GAMEAPI/live_wecasino");
-const liveOnCasinoRouter = require("./routes/GAMEAPI/live_oncasino");
-const liveAllBetRouter = require("./routes/GAMEAPI/live_allbet");
 
 const paymentGatewaySKL99Router = require("./routes/PaymentGateway/skl99");
 const paymentGatewaySurePayRouter = require("./routes/PaymentGateway/surepay");
@@ -200,8 +168,6 @@ app.use(
     crossOriginEmbedderPolicy: false,
   })
 );
-
-app.use(slotMega888LoginRouter);
 
 app.use(
   express.json({
@@ -871,39 +837,8 @@ app.use(LuckyDrawRouter);
 app.use(MissionRouter);
 
 app.use(slotEpicWinRouter);
-app.use(slotFachaiRouter);
-app.use(slotLivePlayaceRouter);
-app.use(slotBNGRouter);
-app.use(slotDCTGameRouter);
-app.use(slotJiliRouter);
-app.use(slotFastspinRouter);
-app.use(slotYesGetRichRouter);
-app.use(slotJokerRouter);
-app.use(slotLiveMicroGamingRouter);
-app.use(slotFunkyRouter);
-app.use(slotHabaneroRouter);
-app.use(slotCQ9Router);
 app.use(slotBTGamingRouter);
-app.use(slotNextSpinRouter);
-app.use(slotPlayStarRouter);
-app.use(slotLivePlaytechRouter);
-app.use(slotVpowerRouter);
-app.use(slotRich88Router);
-app.use(slotRSGRouter);
 app.use(slotAceWinRouter);
-app.use(slotSpadeGamingRouter);
-app.use(slotMega888Router);
-
-app.use(sportSBOBETRouter);
-app.use(sportM9BetRouter);
-
-app.use(esportTFGamingRouter);
-
-app.use(liveSaGamingRouter);
-app.use(liveYeebetRouter);
-app.use(liveWECasinoRouter);
-app.use(liveOnCasinoRouter);
-app.use(liveAllBetRouter);
 
 app.use(paymentGatewaySKL99Router);
 app.use(paymentGatewaySurePayRouter);

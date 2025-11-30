@@ -42,30 +42,8 @@ const BankList = require("../models/banklist.model");
 const BankTransactionLog = require("../models/banktransactionlog.model");
 
 const SlotEpicWinModal = require("../models/slot_epicwin.model");
-const SlotFachaiModal = require("../models/slot_fachai.model");
-const SlotLivePlayAceModal = require("../models/slot_liveplayace.model");
-const SlotJiliModal = require("../models/slot_jili.model");
-const SlotYGRModal = require("../models/slot_yesgetrich.model");
-const SlotJokerModal = require("../models/slot_joker.model");
-const SlotLiveMicroGamingModal = require("../models/slot_livemicrogaming.model");
-const SlotFunkyModal = require("../models/slot_funky.model");
-const EsportTfGamingModal = require("../models/esport_tfgaming.model");
-const LiveSaGamingModal = require("../models/live_sagaming.model");
-const LiveYeebetModal = require("../models/live_yeebet.model");
-const LiveWeCasinoModal = require("../models/live_wecasino.model");
-const SlotCQ9Modal = require("../models/slot_cq9.model");
-const SlotHabaneroModal = require("../models/slot_habanero.model");
-const SlotBNGModal = require("../models/slot_bng.model");
-const SlotPlayStarModal = require("../models/slot_playstar.model");
-const SlotVPowerModal = require("../models/slot_vpower.model");
-const SlotNextSpinModal = require("../models/slot_nextspin.model");
-const SlotDCTGameModal = require("../models/slot_dctgame.model");
-const SlotPlaytechModal = require("../models/slot_playtech.model");
-const SlotFastSpinModal = require("../models/slot_fastspin.model");
-const SlotRich88Modal = require("../models/slot_rich88.model");
 const SlotBTGamingModal = require("../models/slot_btgaming.model");
 const SlotAceWinModal = require("../models/slot_acewin.model");
-const SlotSpadeGamingModal = require("../models/slot_spadegaming.model");
 
 const UserWalletLog = require("../models/userwalletlog.model");
 const Bonus = require("../models/bonus.model");
@@ -5947,129 +5925,6 @@ router.get(
             settle: true,
           }),
 
-          // Fachai
-          getAllUsersTurnover(SlotFachaiModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          getAllUsersTurnover(SlotLivePlayAceModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          // Jili
-          getAllUsersTurnover(SlotJiliModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          // YGR
-          getAllUsersTurnover(SlotYGRModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          // Joker
-          getAllUsersTurnover(SlotJokerModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          getAllUsersTurnover(SlotLiveMicroGamingModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          // Funky
-          getAllUsersTurnover(SlotFunkyModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          // TF Gaming
-          getAllUsersTurnover(EsportTfGamingModal, {
-            settle: true,
-            cancel: { $ne: true },
-          }),
-
-          // SA Gaming
-          getAllUsersTurnover(LiveSaGamingModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          // Yeebet
-          getAllUsersTurnover(LiveYeebetModal, {
-            settle: true,
-            cancel: { $ne: true },
-          }),
-
-          // WE Casino
-          getAllUsersTurnover(LiveWeCasinoModal, {
-            settle: true,
-            cancel: { $ne: true },
-          }),
-
-          // CQ9 - Already included
-          getAllUsersTurnover(SlotCQ9Modal, {
-            cancel: { $ne: true },
-            refund: { $ne: true },
-            settle: true,
-          }),
-
-          // Habanero
-          getAllUsersTurnover(SlotHabaneroModal, {
-            refund: { $ne: true },
-            settle: true,
-          }),
-
-          // BNG
-          getAllUsersTurnover(SlotBNGModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          getAllUsersTurnover(SlotPlayStarModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          getAllUsersTurnover(SlotVPowerModal, {
-            settle: true,
-          }),
-
-          getAllUsersTurnover(SlotNextSpinModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          getAllUsersTurnover(SlotDCTGameModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          getAllUsersTurnover(
-            SlotPlaytechModal,
-            {
-              settle: true,
-              cancel: { $ne: true },
-            },
-            { $ifNull: ["$betamount", 0] }
-          ),
-
-          // FastSpin
-          getAllUsersTurnover(SlotFastSpinModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          // Rich88
-          getAllUsersTurnover(SlotRich88Modal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
           // BT Gaming
           getAllUsersTurnover(SlotBTGamingModal, {
             cancel: { $ne: true },
@@ -6078,12 +5933,6 @@ router.get(
 
           // AceWin
           getAllUsersTurnover(SlotAceWinModal, {
-            cancel: { $ne: true },
-            settle: true,
-          }),
-
-          // Spade Gaming
-          getAllUsersTurnover(SlotSpadeGamingModal, {
             cancel: { $ne: true },
             settle: true,
           }),

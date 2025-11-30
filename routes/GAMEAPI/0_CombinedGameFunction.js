@@ -12,7 +12,6 @@ const {
 const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
 const moment = require("moment");
-const { mega888CheckBalance } = require("./slot_mega888");
 const GameWalletLog = require("../../models/gamewalletlog.model");
 
 require("dotenv").config();
