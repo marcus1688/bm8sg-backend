@@ -105,6 +105,10 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
         url: `${PUBLIC_APIURL}api/tfgaming/getturnoverforrebate`,
         name: "TF GAMING",
       },
+      {
+        url: `${PUBLIC_APIURL}api/bng/getturnoverforrebate`,
+        name: "BNG",
+      },
     ];
 
     const routePromises = routes.map((route) =>

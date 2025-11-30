@@ -762,7 +762,7 @@ router.post("/api/bng/launchGame", authenticateToken, async (req, res) => {
   }
 });
 
-router.post("/api/bngprod", async (req, res) => {
+router.post("/api/bngprodsg", async (req, res) => {
   try {
     const {
       name,
