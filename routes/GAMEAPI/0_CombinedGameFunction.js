@@ -21,14 +21,13 @@ function roundToTwoDecimals(num) {
 }
 
 const GAME_BALANCE_CHECKERS = [
-  {
-    name: "mnega888",
-    key: "mega888Balance",
-    checker: (user) => mega888CheckBalance(user),
-    extractBalance: (result) => Number(result.balance),
-    condition: (user) => !!user.mega888GameID,
-  },
-
+  // {
+  //   name: "mnega888",
+  //   key: "mega888Balance",
+  //   checker: (user) => mega888CheckBalance(user),
+  //   extractBalance: (result) => Number(result.balance),
+  //   condition: (user) => !!user.mega888GameID,
+  // },
   // {
   //   name: "pg",
   //   key: "pgBalance",
