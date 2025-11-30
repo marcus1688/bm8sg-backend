@@ -72,6 +72,9 @@ const MissionRouter = require("./routes/mission");
 const slotEpicWinRouter = require("./routes/GAMEAPI/slot_epicwin");
 const slotBTGamingRouter = require("./routes/GAMEAPI/slot_btgaming");
 const slotAceWinRouter = require("./routes/GAMEAPI/slot_acewin");
+const slotYGRRouter = require("./routes/GAMEAPI/slot_yesgetrich");
+const slotVPowerRouter = require("./routes/GAMEAPI/slot_vpower");
+const slotBNGRouter = require("./routes/GAMEAPI/slot_bng");
 
 const paymentGatewaySKL99Router = require("./routes/PaymentGateway/skl99");
 const paymentGatewaySurePayRouter = require("./routes/PaymentGateway/surepay");
@@ -839,6 +842,9 @@ app.use(MissionRouter);
 app.use(slotEpicWinRouter);
 app.use(slotBTGamingRouter);
 app.use(slotAceWinRouter);
+app.use(slotYGRRouter);
+app.use(slotVPowerRouter);
+app.use(slotBNGRouter);
 
 app.use(paymentGatewaySKL99Router);
 app.use(paymentGatewaySurePayRouter);

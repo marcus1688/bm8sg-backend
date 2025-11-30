@@ -300,6 +300,10 @@ const userSchema = new mongoose.Schema(
       btgaming: { type: gameLockSchema, default: () => ({}) },
       acewinslot: { type: gameLockSchema, default: () => ({}) },
       acewinfish: { type: gameLockSchema, default: () => ({}) },
+      yesgetrichfish: { type: gameLockSchema, default: () => ({}) },
+      yesgetrichslot: { type: gameLockSchema, default: () => ({}) },
+      vpower: { type: gameLockSchema, default: () => ({}) },
+      bng: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -330,9 +334,47 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-
     acewinGameToken: {
       type: String,
+    },
+    ygrGameTokens: [
+      {
+        token: {
+          type: String,
+          required: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+        expiresAt: {
+          type: Date,
+          required: true,
+        },
+      },
+    ],
+    vpowerGameID: {
+      type: String,
+    },
+    bngGameTokens: [
+      {
+        token: {
+          type: String,
+          required: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+        expiresAt: {
+          type: Date,
+          required: true,
+        },
+      },
+    ],
+    bngbalanceVersion: {
+      type: Number,
+      default: 0,
     },
   },
   {

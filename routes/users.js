@@ -44,6 +44,8 @@ const BankTransactionLog = require("../models/banktransactionlog.model");
 const SlotEpicWinModal = require("../models/slot_epicwin.model");
 const SlotBTGamingModal = require("../models/slot_btgaming.model");
 const SlotAceWinModal = require("../models/slot_acewin.model");
+const SlotYGRModal = require("../models/slot_yesgetrich.model");
+const SlotVPowerModal = require("../models/slot_vpower.model");
 
 const UserWalletLog = require("../models/userwalletlog.model");
 const Bonus = require("../models/bonus.model");
@@ -5934,6 +5936,16 @@ router.get(
           // AceWin
           getAllUsersTurnover(SlotAceWinModal, {
             cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // YGR
+          getAllUsersTurnover(SlotYGRModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          getAllUsersTurnover(SlotVPowerModal, {
             settle: true,
           }),
         ];

@@ -21,6 +21,9 @@ const GameWalletLog = require("../../models/gamewalletlog.model");
 const GameEpicWinGameModal = require("../../models/slot_epicwinDatabase.model");
 const GameBTGamingGameModal = require("../../models/slot_btgamingDatabase.model");
 const GameAceWinGameModal = require("../../models/slot_acewinDatabase.model");
+const GameYGRGameModal = require("../../models/slot_yesgetrichDatabase.model");
+const GameVPowerGameModal = require("../../models/slot_vpowerDatabase.model");
+const GameBNGGameModal = require("../../models/slot_bngDatabase.model");
 
 const { S3Client, ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const multer = require("multer");
@@ -67,7 +70,7 @@ function parseRTP(rtpRaw) {
 
 router.post("/api/playtech/import-games", async (req, res) => {
   try {
-    const importFilePath = path.join(__dirname, "../../public/acewin.json");
+    const importFilePath = path.join(__dirname, "../../public/bng.json");
     console.log(importFilePath);
 
     // Check if file exists
@@ -93,9 +96,9 @@ router.post("/api/playtech/import-games", async (req, res) => {
 
     console.log("pass");
     console.log(`Found ${gameList.length} games to import`);
-    await GameAceWinGameModal.deleteMany();
+    await GameBNGGameModal.deleteMany();
     // Insert into MongoDB
-    await GameAceWinGameModal.insertMany(gameList);
+    await GameBNGGameModal.insertMany(gameList);
 
     return res.status(200).json({
       success: true,
