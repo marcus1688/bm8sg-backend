@@ -19,9 +19,6 @@ const liveyeebetschema = new mongoose.Schema(
     settleamount: {
       type: Number,
     },
-    username: {
-      type: String,
-    },
     bet: {
       type: Boolean,
     },
