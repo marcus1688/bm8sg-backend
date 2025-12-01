@@ -829,8 +829,7 @@ router.post("/api/wmcasino/getturnoverforrebate", async (req, res) => {
 
       playerSummary[actualUsername].turnover += record.betamount || 0;
 
-      playerSummary[actualUsername].winloss +=
-        (record.settleamount || 0) - (record.betamount || 0);
+      playerSummary[actualUsername].winloss += record.settleamount || 0;
     });
     // Format the turnover and win/loss for each player to two decimal places
     Object.keys(playerSummary).forEach((playerId) => {
@@ -887,7 +886,7 @@ router.get(
 
       records.forEach((record) => {
         totalTurnover += record.betamount || 0;
-        totalWinLoss += (record.settleamount || 0) - (record.betamount || 0);
+        totalWinLoss += record.settleamount || 0;
       });
 
       totalTurnover = Number(totalTurnover.toFixed(2));
@@ -1017,7 +1016,7 @@ router.get(
       records.forEach((record) => {
         totalTurnover += record.betamount || 0;
 
-        totalWinLoss += (record.betamount || 0) - (record.settleamount || 0);
+        totalWinLoss += record.betamount || 0;
       });
 
       return res.status(200).json({

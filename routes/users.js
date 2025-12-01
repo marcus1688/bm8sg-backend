@@ -57,6 +57,7 @@ const SportM9BetModal = require("../models/sport_m9bet.model");
 const LiveSaGamingModal = require("../models/live_sagaming.model");
 const LiveYeebetModal = require("../models/live_yeebet.model");
 const LiveWeCasinoModal = require("../models/live_wecasino.model");
+const LiveWMCasinoRebateModal = require("../models/live_wmcasinorebate.model");
 
 const UserWalletLog = require("../models/userwalletlog.model");
 const Bonus = require("../models/bonus.model");
@@ -5842,12 +5843,13 @@ router.get(
         matchConditions,
         turnoverExpression = {
           $ifNull: [{ $ifNull: ["$validbetamount", "$betamount"] }, 0],
-        }
+        },
+        timeFieldName = "createdAt"
       ) => {
         try {
           const fullMatchConditions = {
             ...matchConditions,
-            createdAt: dateFilter.createdAt,
+            [timeFieldName]: dateFilter.createdAt,
           };
 
           const results = await model.aggregate([
@@ -6005,6 +6007,15 @@ router.get(
             cancel: { $ne: true },
             settle: true,
           }),
+
+          getAllUsersTurnover(
+            LiveWMCasinoRebateModal,
+            {},
+            {
+              $ifNull: [{ $ifNull: ["$validbetamount", "$betamount"] }, 0],
+            },
+            "betTime"
+          ),
         ];
 
         const todayGameResults = await Promise.allSettled(todayGamePromises);

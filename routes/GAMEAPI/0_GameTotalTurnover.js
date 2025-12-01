@@ -24,6 +24,7 @@ const SportM9BetModal = require("../../models/sport_m9bet.model");
 const LiveWeCasinoModal = require("../../models/live_wecasino.model");
 const SlotSpadeGamingModal = require("../../models/slot_spadegaming.model");
 const SlotNextSpinModal = require("../../models/slot_nextspin.model");
+const LiveWMCasinoRebateModal = require("../../models/live_wmcasino.model");
 
 const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
@@ -36,14 +37,17 @@ const getGameDataSummary = async (
   username,
   start,
   end,
-  aggregationPipeline
+  aggregationPipeline,
+  useBetTime = false
 ) => {
   try {
+    const timeField = useBetTime ? "betTime" : "createdAt";
+
     const results = await model.aggregate([
       {
         $match: {
           username: username,
-          createdAt: { $gte: start, $lte: end },
+          [timeField]: { $gte: start, $lte: end },
           ...aggregationPipeline.$match,
         },
       },
@@ -347,6 +351,14 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
           },
         },
       },
+      wmcasino: {
+        $match: {},
+        $group: {
+          _id: null,
+          turnover: { $sum: { $ifNull: ["$betamount", 0] } },
+          winLoss: { $sum: { $ifNull: ["$settleamount", 0] } },
+        },
+      },
     };
 
     // Create an array of promises for all aggregations to match player-report
@@ -442,6 +454,14 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
         end,
         aggregations.nextspin
       ),
+      getGameDataSummary(
+        LiveWMCasinoRebateModal,
+        user.gameId,
+        start,
+        end,
+        aggregations.wmcasino,
+        true
+      ),
     ]);
 
     // Create a result map from the resolved promises
@@ -497,6 +517,10 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
       nextspin:
         promiseResults[12].status === "fulfilled"
           ? promiseResults[12].value
+          : { turnover: 0, winLoss: 0 },
+      wmcasino:
+        promiseResults[13].status === "fulfilled"
+          ? promiseResults[13].value
           : { turnover: 0, winLoss: 0 },
     };
     // Calculate total turnover and win loss
