@@ -1016,7 +1016,7 @@ router.get(
       records.forEach((record) => {
         totalTurnover += record.betamount || 0;
 
-        totalWinLoss += record.betamount || 0;
+        totalWinLoss -= record.settleamount || 0;
       });
 
       return res.status(200).json({
