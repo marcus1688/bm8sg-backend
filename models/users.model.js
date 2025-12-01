@@ -309,6 +309,7 @@ const userSchema = new mongoose.Schema(
       yeebet: { type: gameLockSchema, default: () => ({}) },
       m9bet: { type: gameLockSchema, default: () => ({}) },
       wecasino: { type: gameLockSchema, default: () => ({}) },
+      wmcasino: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -393,6 +394,9 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
     weCasinoGameToken: {
+      type: String,
+    },
+    wmCasinoGamePW: {
       type: String,
     },
   },
