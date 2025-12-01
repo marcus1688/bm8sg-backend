@@ -753,94 +753,58 @@ router.post("/api/wmcasinosgd", async (req, res) => {
   }
 });
 
-function convertToHongKongStartOfDay(dateString) {
-  return moment.tz(dateString, "Asia/Hong_Kong").format("YYYYMMDD000000");
-}
-
-function convertToHongKongEndOfDay(dateString) {
-  return moment.tz(dateString, "Asia/Hong_Kong").format("YYYYMMDD235959");
-}
-
 router.post("/api/wmcasino/getturnoverforrebate", async (req, res) => {
   try {
     const { date } = req.body;
 
     let startDate, endDate;
     if (date === "today") {
-      startDate = moment.utc().add(8, "hours").format("YYYYMMDD") + "000000";
-      endDate = moment.utc().add(8, "hours").format("YYYYMMDD") + "235959";
+      startDate = moment
+        .utc()
+        .add(8, "hours")
+        .startOf("day")
+        .subtract(8, "hours")
+        .toDate();
+      endDate = moment
+        .utc()
+        .add(8, "hours")
+        .endOf("day")
+        .subtract(8, "hours")
+        .toDate();
     } else if (date === "yesterday") {
-      startDate =
-        moment.utc().add(8, "hours").subtract(1, "days").format("YYYYMMDD") +
-        "000000";
+      startDate = moment
+        .utc()
+        .add(8, "hours")
+        .subtract(1, "days")
+        .startOf("day")
+        .subtract(8, "hours")
+        .toDate();
 
-      endDate =
-        moment.utc().add(8, "hours").subtract(1, "days").format("YYYYMMDD") +
-        "235959";
+      endDate = moment
+        .utc()
+        .add(8, "hours")
+        .subtract(1, "days")
+        .endOf("day")
+        .subtract(8, "hours")
+        .toDate();
     }
 
-    console.log("WM CASINO QUERYING TIME", startDate, endDate);
+    console.log("WM CASINO SLOT QUERYING TIME", startDate, endDate);
 
-    const timestamp = Math.floor(Date.now() / 1000);
-    const params = new URLSearchParams({
-      cmd: "GetDateTimeReport",
-      vendorId: wmVendorID,
-      signature: wmSecret,
-      startTime: startDate,
-      endTime: endDate,
-      timestamp: timestamp,
-      syslang: 0,
-      timetype: 0,
-      datatype: 0,
+    const records = await LiveWMCasinoRebateModal.find({
+      betTime: {
+        $gte: startDate,
+        $lt: endDate,
+      },
     });
 
-    const apiUrl = `${wmAPIURL}?${params.toString()}`;
-    const apiResponse = await axios.post(
-      apiUrl,
-      {},
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    console.log(apiResponse.data);
-    if (
-      apiResponse.data.errorCode !== 107 &&
-      apiResponse.data.errorCode !== 0
-    ) {
-      console.log(`WM CASINO: ${apiResponse.data.errorMessage}`);
-      return res
-        .status(500)
-        .json({ error: `WM CASINO: Failed to fetch win/loss report` });
-    }
-
-    const transactions = apiResponse.data.result;
-
-    const gameIdSummary = {};
-
-    if (transactions) {
-      transactions.forEach((transaction) => {
-        const gameId = transaction.user; // This is the gameId from your User schema
-
-        // Initialize totals for the gameId if not present
-        if (!gameIdSummary[gameId]) {
-          gameIdSummary[gameId] = {
-            turnover: 0,
-            winloss: 0,
-          };
-        }
-        // Add validbet and winloss to the user's total
-        gameIdSummary[gameId].turnover += parseFloat(transaction.validbet || 0);
-        gameIdSummary[gameId].winloss += parseFloat(transaction.result || 0);
-      });
-    }
-
-    const gameIds = Object.keys(gameIdSummary);
+    const uniqueGameIds = [
+      ...new Set(records.map((record) => record.username)),
+    ];
 
     const users = await User.find(
-      { gameId: { $in: gameIds } },
-      { username: 1, gameId: 1, _id: 0 }
+      { gameId: { $in: uniqueGameIds } },
+      { gameId: 1, username: 1 }
     ).lean();
 
     const gameIdToUsername = {};
@@ -848,34 +812,52 @@ router.post("/api/wmcasino/getturnoverforrebate", async (req, res) => {
       gameIdToUsername[user.gameId] = user.username;
     });
 
-    const usernameSummary = {};
+    let playerSummary = {};
 
-    Object.keys(gameIdSummary).forEach((gameId) => {
-      const username = gameIdToUsername[gameId];
+    records.forEach((record) => {
+      const gameId = record.username;
+      const actualUsername = gameIdToUsername[gameId];
 
-      if (username) {
-        // User found in database
-        usernameSummary[username] = gameIdSummary[gameId];
-      } else {
-        // User not found, keep gameId but add a note
-        console.warn(`WM CASINO: User not found for gameId: ${gameId}`);
-        usernameSummary[`${gameId}_NOT_FOUND`] = gameIdSummary[gameId];
+      if (!actualUsername) {
+        console.warn(`WM CASINO User not found for gameId: ${gameId}`);
+        return;
       }
-    });
 
-    // Construct the final response
+      if (!playerSummary[actualUsername]) {
+        playerSummary[actualUsername] = { turnover: 0, winloss: 0 };
+      }
+
+      playerSummary[actualUsername].turnover += record.betamount || 0;
+
+      playerSummary[actualUsername].winloss +=
+        (record.settleamount || 0) - (record.betamount || 0);
+    });
+    // Format the turnover and win/loss for each player to two decimal places
+    Object.keys(playerSummary).forEach((playerId) => {
+      playerSummary[playerId].turnover = Number(
+        playerSummary[playerId].turnover.toFixed(2)
+      );
+      playerSummary[playerId].winloss = Number(
+        playerSummary[playerId].winloss.toFixed(2)
+      );
+    });
+    // Return the aggregated results
     return res.status(200).json({
       success: true,
       summary: {
         gamename: "WM CASINO",
         gamecategory: "Live Casino",
-        users: usernameSummary,
+        users: playerSummary,
       },
     });
   } catch (error) {
     console.log("WM CASINO: Failed to fetch win/loss report:", error.message);
     return res.status(500).json({
-      error: "WM CASINO: Failed to fetch win/loss report",
+      success: false,
+      message: {
+        en: "WM CASINO: Failed to fetch win/loss report",
+        zh: "WM CASINO: 获取盈亏报告失败",
+      },
     });
   }
 });
@@ -891,26 +873,26 @@ router.get(
 
       const user = await User.findById(userId);
 
-      const records = await liveWMCasinoModal.find({
+      const records = await LiveWMCasinoRebateModal.find({
         username: user.gameId,
-        createdAt: {
+        betTime: {
           $gte: moment(new Date(startDate)).utc().toDate(),
           $lte: moment(new Date(endDate)).utc().toDate(),
         },
       });
 
+      // Aggregate turnover and win/loss for each player
       let totalTurnover = 0;
       let totalWinLoss = 0;
 
       records.forEach((record) => {
         totalTurnover += record.betamount || 0;
-
         totalWinLoss += (record.settleamount || 0) - (record.betamount || 0);
       });
 
       totalTurnover = Number(totalTurnover.toFixed(2));
       totalWinLoss = Number(totalWinLoss.toFixed(2));
-      // Construct the final response
+      // Return the aggregated results
       return res.status(200).json({
         success: true,
         summary: {
@@ -926,7 +908,11 @@ router.get(
     } catch (error) {
       console.log("WM CASINO: Failed to fetch win/loss report:", error.message);
       return res.status(500).json({
-        error: "WM CASINO: Failed to fetch win/loss report",
+        success: false,
+        message: {
+          en: "WM CASINO: Failed to fetch win/loss report",
+          zh: "WM CASINO: 获取盈亏报告失败",
+        },
       });
     }
   }
@@ -973,11 +959,11 @@ router.get(
           gameCategories["Live Casino"] &&
           gameCategories["Live Casino"] instanceof Map
         ) {
-          const liveCasino = Object.fromEntries(gameCategories["Live Casino"]);
+          const slotGames = Object.fromEntries(gameCategories["Live Casino"]);
 
-          if (liveCasino["WM CASINO"]) {
-            totalTurnover += liveCasino["WM CASINO"].turnover || 0;
-            totalWinLoss += liveCasino["WM CASINO"].winloss || 0;
+          if (slotGames["WM CASINO"]) {
+            totalTurnover += slotGames["WM CASINO"].turnover || 0;
+            totalWinLoss += slotGames["WM CASINO"].winloss || 0;
           }
         }
       });
@@ -1001,7 +987,11 @@ router.get(
     } catch (error) {
       console.log("WM CASINO: Failed to fetch win/loss report:", error.message);
       return res.status(500).json({
-        error: "WM CASINO: Failed to fetch win/loss report",
+        success: false,
+        message: {
+          en: "WM CASINO: Failed to fetch win/loss report",
+          zh: "WM CASINO: 获取盈亏报告失败",
+        },
       });
     }
   }
@@ -1014,8 +1004,8 @@ router.get(
     try {
       const { startDate, endDate } = req.query;
 
-      const records = await liveWMCasinoModal.find({
-        createdAt: {
+      const records = await LiveWMCasinoRebateModal.find({
+        betTime: {
           $gte: moment(new Date(startDate)).utc().toDate(),
           $lte: moment(new Date(endDate)).utc().toDate(),
         },
@@ -1030,23 +1020,23 @@ router.get(
         totalWinLoss += (record.betamount || 0) - (record.settleamount || 0);
       });
 
-      totalTurnover = Number(totalTurnover.toFixed(2));
-      totalWinLoss = Number(totalWinLoss.toFixed(2));
-
       return res.status(200).json({
         success: true,
         summary: {
           gamename: "WM CASINO",
           gamecategory: "Live Casino",
-          totalturnover: totalTurnover,
-          totalwinloss: totalWinLoss,
+          totalturnover: Number(totalTurnover.toFixed(2)),
+          totalwinloss: Number(totalWinLoss.toFixed(2)),
         },
       });
     } catch (error) {
       console.error("WM CASINO: Failed to fetch win/loss report:", error);
       return res.status(500).json({
         success: false,
-        error: "WM CASINO: Failed to fetch win/loss report",
+        message: {
+          en: "WM CASINO: Failed to fetch win/loss report",
+          zh: "WM CASINO: 获取盈亏报告失败",
+        },
       });
     }
   }
@@ -1108,7 +1098,10 @@ router.get(
       console.error("WM CASINO: Failed to fetch win/loss report:", error);
       return res.status(500).json({
         success: false,
-        error: "WM CASINO: Failed to fetch win/loss report",
+        message: {
+          en: "WM CASINO: Failed to fetch win/loss report",
+          zh: "WM CASINO: 获取盈亏报告失败",
+        },
       });
     }
   }
