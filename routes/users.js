@@ -54,6 +54,7 @@ const SportM9BetModal = require("../models/sport_m9bet.model");
 
 const LiveSaGamingModal = require("../models/live_sagaming.model");
 const LiveYeebetModal = require("../models/live_yeebet.model");
+const LiveWeCasinoModal = require("../models/live_wecasino.model");
 
 const UserWalletLog = require("../models/userwalletlog.model");
 const Bonus = require("../models/bonus.model");
@@ -5984,6 +5985,12 @@ router.get(
           getAllUsersTurnover(SportM9BetModal, {
             cancel: { $ne: true },
             settle: true,
+          }),
+
+          // WE Casino
+          getAllUsersTurnover(LiveWeCasinoModal, {
+            settle: true,
+            cancel: { $ne: true },
           }),
         ];
 

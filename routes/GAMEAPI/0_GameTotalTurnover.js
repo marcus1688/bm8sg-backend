@@ -21,6 +21,7 @@ const SlotBNGModal = require("../../models/slot_bng.model");
 const LiveSaGamingModal = require("../../models/live_sagaming.model");
 const LiveYeebetModal = require("../../models/live_yeebet.model");
 const SportM9BetModal = require("../../models/sport_m9bet.model");
+const LiveWeCasinoModal = require("../../models/live_wecasino.model");
 
 const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
@@ -275,6 +276,28 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
           },
         },
       },
+      wecasino: {
+        $match: {
+          settle: true,
+          cancel: { $ne: true },
+        },
+        $group: {
+          _id: null,
+          turnover: {
+            $sum: {
+              $ifNull: [{ $ifNull: ["$validbetamount", "$betamount"] }, 0],
+            },
+          },
+          winLoss: {
+            $sum: {
+              $subtract: [
+                { $ifNull: ["$settleamount", 0] },
+                { $ifNull: ["$betamount", 0] },
+              ],
+            },
+          },
+        },
+      },
     };
 
     // Create an array of promises for all aggregations to match player-report
@@ -349,6 +372,13 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
         end,
         aggregations.m9bet
       ),
+      getGameDataSummary(
+        LiveWeCasinoModal,
+        user.gameId,
+        start,
+        end,
+        aggregations.wecasino
+      ),
     ]);
 
     // Create a result map from the resolved promises
@@ -392,6 +422,10 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
       m9bet:
         promiseResults[9].status === "fulfilled"
           ? promiseResults[9].value
+          : { turnover: 0, winLoss: 0 },
+      wecasino:
+        promiseResults[10].status === "fulfilled"
+          ? promiseResults[10].value
           : { turnover: 0, winLoss: 0 },
     };
     // Calculate total turnover and win loss

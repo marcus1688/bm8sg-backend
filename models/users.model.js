@@ -308,6 +308,7 @@ const userSchema = new mongoose.Schema(
       sagaming: { type: gameLockSchema, default: () => ({}) },
       yeebet: { type: gameLockSchema, default: () => ({}) },
       m9bet: { type: gameLockSchema, default: () => ({}) },
+      wecasino: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -390,6 +391,9 @@ const userSchema = new mongoose.Schema(
     m9betDeposited: {
       type: Boolean,
       default: false,
+    },
+    weCasinoGameToken: {
+      type: String,
     },
   },
   {
