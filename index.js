@@ -81,6 +81,8 @@ const liveYeebetRouter = require("./routes/GAMEAPI/live_yeebet");
 
 const esportTFGamingRouter = require("./routes/GAMEAPI/esport_tfgaming");
 
+const sportM9BetRouter = require("./routes/GAMEAPI/sports_m9bet");
+
 const paymentGatewaySKL99Router = require("./routes/PaymentGateway/skl99");
 const paymentGatewaySurePayRouter = require("./routes/PaymentGateway/surepay");
 const paymentGatewayFPayRouter = require("./routes/PaymentGateway/fpay");
@@ -855,6 +857,8 @@ app.use(liveSAGamingRouter);
 app.use(liveYeebetRouter);
 
 app.use(esportTFGamingRouter);
+
+app.use(sportM9BetRouter);
 
 app.use(paymentGatewaySKL99Router);
 app.use(paymentGatewaySurePayRouter);

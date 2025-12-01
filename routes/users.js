@@ -50,6 +50,8 @@ const SlotBNGModal = require("../models/slot_bng.model");
 
 const EsportTfGamingModal = require("../models/esport_tfgaming.model");
 
+const SportM9BetModal = require("../models/sport_m9bet.model");
+
 const LiveSaGamingModal = require("../models/live_sagaming.model");
 const LiveYeebetModal = require("../models/live_yeebet.model");
 
@@ -5977,6 +5979,11 @@ router.get(
           getAllUsersTurnover(LiveYeebetModal, {
             settle: true,
             cancel: { $ne: true },
+          }),
+
+          getAllUsersTurnover(SportM9BetModal, {
+            cancel: { $ne: true },
+            settle: true,
           }),
         ];
 
