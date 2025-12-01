@@ -221,8 +221,8 @@ router.get("/api/yeebet/balance", async (req, res) => {
       });
     }
     const paramsForSign = { ...req.query };
+    console.log(req.query);
     delete paramsForSign.sign;
-    console.log(paramsForSign);
     const generatedSign = generateSignature(paramsForSign, yeebetSecret);
 
     if (sign !== generatedSign) {
