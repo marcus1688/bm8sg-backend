@@ -306,6 +306,7 @@ const userSchema = new mongoose.Schema(
       bng: { type: gameLockSchema, default: () => ({}) },
       tfgaming: { type: gameLockSchema, default: () => ({}) },
       sagaming: { type: gameLockSchema, default: () => ({}) },
+      yeebet: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },

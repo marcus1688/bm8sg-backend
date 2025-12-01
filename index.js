@@ -77,6 +77,7 @@ const slotVPowerRouter = require("./routes/GAMEAPI/slot_vpower");
 const slotBNGRouter = require("./routes/GAMEAPI/slot_bng");
 
 const liveSAGamingRouter = require("./routes/GAMEAPI/live_sagaming");
+const liveYeebetRouter = require("./routes/GAMEAPI/live_yeebet");
 
 const esportTFGamingRouter = require("./routes/GAMEAPI/esport_tfgaming");
 
@@ -851,6 +852,7 @@ app.use(slotVPowerRouter);
 app.use(slotBNGRouter);
 
 app.use(liveSAGamingRouter);
+app.use(liveYeebetRouter);
 
 app.use(esportTFGamingRouter);
 
