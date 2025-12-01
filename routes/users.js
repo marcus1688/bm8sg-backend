@@ -47,6 +47,8 @@ const SlotAceWinModal = require("../models/slot_acewin.model");
 const SlotYGRModal = require("../models/slot_yesgetrich.model");
 const SlotVPowerModal = require("../models/slot_vpower.model");
 const SlotBNGModal = require("../models/slot_bng.model");
+const SlotSpadeGamingModal = require("../models/slot_spadegaming.model");
+const SlotNextSpinModal = require("../models/slot_nextspin.model");
 
 const EsportTfGamingModal = require("../models/esport_tfgaming.model");
 
@@ -5991,6 +5993,17 @@ router.get(
           getAllUsersTurnover(LiveWeCasinoModal, {
             settle: true,
             cancel: { $ne: true },
+          }),
+
+          // Spade Gaming
+          getAllUsersTurnover(SlotSpadeGamingModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          getAllUsersTurnover(SlotNextSpinModal, {
+            cancel: { $ne: true },
+            settle: true,
           }),
         ];
 

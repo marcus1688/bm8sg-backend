@@ -310,6 +310,9 @@ const userSchema = new mongoose.Schema(
       m9bet: { type: gameLockSchema, default: () => ({}) },
       wecasino: { type: gameLockSchema, default: () => ({}) },
       wmcasino: { type: gameLockSchema, default: () => ({}) },
+      spadegamingslot: { type: gameLockSchema, default: () => ({}) },
+      spadegamingfish: { type: gameLockSchema, default: () => ({}) },
+      nextspin: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -397,6 +400,9 @@ const userSchema = new mongoose.Schema(
       type: String,
     },
     wmCasinoGamePW: {
+      type: String,
+    },
+    nextspinGameToken: {
       type: String,
     },
   },
