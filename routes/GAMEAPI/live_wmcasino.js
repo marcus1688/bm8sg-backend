@@ -402,7 +402,7 @@ function sendResponse(res, errorCode, errorMessage, result) {
   });
 }
 
-router.post("/api/wmcasino", async (req, res) => {
+router.post("/api/wmcasinosgd", async (req, res) => {
   const currentTime = getCurrentFormattedDate();
 
   try {
