@@ -87,6 +87,8 @@ const esportTFGamingRouter = require("./routes/GAMEAPI/esport_tfgaming");
 
 const sportM9BetRouter = require("./routes/GAMEAPI/sports_m9bet");
 
+const { syncWMCasinoGameHistory } = require("./routes/GAMEAPI/live_wmcasino");
+
 const paymentGatewaySKL99Router = require("./routes/PaymentGateway/skl99");
 const paymentGatewaySurePayRouter = require("./routes/PaymentGateway/surepay");
 const paymentGatewayFPayRouter = require("./routes/PaymentGateway/fpay");
@@ -917,6 +919,31 @@ if (process.env.NODE_ENV !== "development") {
       console.error("[Token Cleanup] Error:", error);
     }
   });
+
+  cron.schedule(
+    "*/5 * * * *",
+    async () => {
+      console.log(`⏰ [${new Date().toISOString()}] Running WM Casino sync...`);
+
+      try {
+        const result = await syncWMCasinoGameHistory();
+
+        if (result.success) {
+          console.log(`✅ WM Casino sync completed successfully`);
+          console.log(`   - Days processed: ${result.daysProcessed}`);
+          console.log(`   - Records saved: ${result.totalRecordsSaved}`);
+          console.log(`   - Duplicates: ${result.totalDuplicates}`);
+        } else {
+          console.error(`❌ WM Casino sync failed: ${result.error}`);
+        }
+      } catch (error) {
+        console.error("❌ WM Casino cron job error:", error.message);
+      }
+    },
+    {
+      timezone: "Asia/Kuala_Lumpur",
+    }
+  );
 }
 
 // cron.schedule(

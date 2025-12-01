@@ -11,6 +11,8 @@ const crypto = require("crypto");
 const querystring = require("querystring");
 const liveWMCasinoModal = require("../../models/live_wmcasino.model");
 const GameWalletLog = require("../../models/gamewalletlog.model");
+const LiveWMCasinoRebateModal = require("../../models/live_wmcasinorebate.model");
+const GameSyncLog = require("../../models/game_syncdata.model");
 require("dotenv").config();
 
 const wmVendorID = "egm8vipsgdapi";
@@ -761,39 +763,31 @@ function convertToHongKongEndOfDay(dateString) {
 
 router.post("/api/wmcasino/getturnoverforrebate", async (req, res) => {
   try {
-    const today = moment.utc().add(8, "hours").format("YYYY-MM-DD");
-    const yesterday = moment
-      .utc()
-      .add(8, "hours")
-      .subtract(1, "days")
-      .format("YYYY-MM-DD");
-
     const { date } = req.body;
 
-    let start, end;
-
+    let startDate, endDate;
     if (date === "today") {
-      start = convertToHongKongStartOfDay(today);
-      end = convertToHongKongEndOfDay(today);
+      startDate = moment.utc().add(8, "hours").format("YYYYMMDD") + "000000";
+      endDate = moment.utc().add(8, "hours").format("YYYYMMDD") + "235959";
     } else if (date === "yesterday") {
-      start = convertToHongKongStartOfDay(yesterday);
-      end = convertToHongKongEndOfDay(yesterday);
-    } else {
-      console.log(date, "WM CASINO: Invalid date");
-      return res.status(400).json({
-        error: "No Date value being pass in",
-      });
+      startDate =
+        moment.utc().add(8, "hours").subtract(1, "days").format("YYYYMMDD") +
+        "000000";
+
+      endDate =
+        moment.utc().add(8, "hours").subtract(1, "days").format("YYYYMMDD") +
+        "235959";
     }
 
-    console.log("WM CASINO QUERYING TIME", start, end);
+    console.log("WM CASINO QUERYING TIME", startDate, endDate);
 
     const timestamp = Math.floor(Date.now() / 1000);
     const params = new URLSearchParams({
       cmd: "GetDateTimeReport",
       vendorId: wmVendorID,
       signature: wmSecret,
-      startTime: start,
-      endTime: end,
+      startTime: startDate,
+      endTime: endDate,
       timestamp: timestamp,
       syslang: 0,
       timetype: 0,
@@ -810,7 +804,7 @@ router.post("/api/wmcasino/getturnoverforrebate", async (req, res) => {
         },
       }
     );
-
+    console.log(apiResponse.data);
     if (
       apiResponse.data.errorCode !== 107 &&
       apiResponse.data.errorCode !== 0
@@ -1119,4 +1113,303 @@ router.get(
     }
   }
 );
+
+const getLastSyncTime = async () => {
+  const syncLog = await GameSyncLog.findOne({ provider: "wmcasino" })
+    .sort({ syncTime: -1 })
+    .lean();
+  return syncLog?.syncTime || null;
+};
+
+const updateLastSyncTime = async (time) => {
+  await GameSyncLog.create({
+    provider: "wmcasino",
+    syncTime: time.toDate(),
+  });
+};
+
+const fetchWMCasinoGameRecords = async (date) => {
+  try {
+    const targetDate = moment(date, "YYYY-MM-DD").tz("Asia/Kuala_Lumpur");
+    const startDate = targetDate.format("YYYYMMDD") + "000000";
+    const endDate = targetDate.format("YYYYMMDD") + "235959";
+
+    console.log(
+      `[WM Casino API] Fetching records for ${date}: ${startDate} to ${endDate}`
+    );
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const params = new URLSearchParams({
+      cmd: "GetDateTimeReport",
+      vendorId: wmVendorID,
+      signature: wmSecret,
+      startTime: startDate,
+      endTime: endDate,
+      timestamp: timestamp,
+      syslang: 0,
+      timetype: 0,
+      datatype: 0,
+    });
+
+    const apiUrl = `${wmAPIURL}?${params.toString()}`;
+    const apiResponse = await axios.post(
+      apiUrl,
+      {},
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 30000,
+      }
+    );
+
+    if (
+      apiResponse.data.errorCode !== 107 &&
+      apiResponse.data.errorCode !== 0
+    ) {
+      console.log(`[WM Casino API] Error: ${apiResponse.data.errorMessage}`);
+      return {
+        success: false,
+        error: apiResponse.data.errorMessage,
+      };
+    }
+
+    const transactions = apiResponse.data.result || [];
+
+    if (transactions.length === 0) {
+      console.log(`[WM Casino API] No transactions for ${date}`);
+      return {
+        success: true,
+        date: date,
+        recordsSaved: 0,
+        duplicates: 0,
+        skipped: 0,
+      };
+    }
+
+    console.log(
+      `[WM Casino API] Found ${transactions.length} transactions for ${date}`
+    );
+
+    let savedCount = 0;
+    let duplicateCount = 0;
+    let skippedCount = 0;
+
+    const cutoffTime = moment.tz("Asia/Kuala_Lumpur").subtract(24, "hours");
+
+    // Batch check existing betIds
+    const betIds = transactions.map((t) => t.betId);
+    const existingBetIds = new Set(
+      (
+        await LiveWMCasinoRebateModal.find({ betId: { $in: betIds } })
+          .select("betId")
+          .lean()
+      ).map((r) => r.betId)
+    );
+
+    const newRecords = [];
+
+    for (const transaction of transactions) {
+      try {
+        if (existingBetIds.has(transaction.betId)) {
+          duplicateCount++;
+          continue;
+        }
+
+        const betTimeUTC8 = moment.tz(
+          transaction.betTime,
+          "YYYY-MM-DD HH:mm:ss",
+          "Asia/Kuala_Lumpur"
+        );
+        const betTimeUTC = betTimeUTC8.utc().toDate();
+
+        // Skip if older than 24 hours
+        if (betTimeUTC8.isBefore(cutoffTime)) {
+          skippedCount++;
+          continue;
+        }
+
+        const isSettled = transaction.settime && transaction.settime !== "null";
+
+        newRecords.push({
+          username: transaction.user,
+          betId: transaction.betId,
+          betamount: parseFloat(transaction.validbet) || 0,
+          settleamount: parseFloat(transaction.result) || 0,
+          notvalidbetamount: parseFloat(transaction.bet) || 0,
+          bet: true,
+          settle: true,
+          betTime: betTimeUTC,
+        });
+
+        savedCount++;
+      } catch (err) {
+        console.error(
+          `[WM Casino API] Error processing betId ${transaction.betId}:`,
+          err.message
+        );
+      }
+    }
+
+    if (newRecords.length > 0) {
+      await LiveWMCasinoRebateModal.insertMany(newRecords, { ordered: false });
+      console.log(
+        `[WM Casino API] Inserted ${newRecords.length} records for ${date}`
+      );
+    }
+
+    console.log(
+      `[WM Casino API] ${date} - Saved: ${savedCount}, Dup: ${duplicateCount}, Skip: ${skippedCount}`
+    );
+
+    return {
+      success: true,
+      date: date,
+      recordsSaved: savedCount,
+      duplicates: duplicateCount,
+      skipped: skippedCount,
+      totalTransactions: transactions.length,
+    };
+  } catch (error) {
+    console.error(`[WM Casino API] Error for ${date}:`, error.message);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+const syncWMCasinoForSingleDay = async (date) => {
+  try {
+    const formattedDate = moment(date, "YYYY-MM-DD").format("YYYY-MM-DD");
+
+    console.log(`[WM Casino Sync Day] Processing ${formattedDate}`);
+
+    const result = await fetchWMCasinoGameRecords(formattedDate);
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    console.log(
+      `[WM Casino Sync Day] ${formattedDate} - Completed: ${result.recordsSaved} records saved`
+    );
+
+    return {
+      date: formattedDate,
+      recordsSaved: result.recordsSaved,
+      duplicates: result.duplicates,
+      skipped: result.skipped,
+      totalTransactions: result.totalTransactions,
+    };
+  } catch (error) {
+    console.error(`[WM Casino Sync Day] Error for ${date}:`, error.message);
+    throw error;
+  }
+};
+
+const syncWMCasinoGameHistory = async () => {
+  try {
+    console.log(
+      `[WM Casino Sync] Starting sync at ${moment().format(
+        "YYYY-MM-DD HH:mm:ss"
+      )}`
+    );
+
+    const now = moment.tz("Asia/Kuala_Lumpur");
+    const daysToSync = [];
+
+    // Get last sync time
+    const lastSyncTime = await getLastSyncTime();
+
+    if (!lastSyncTime) {
+      console.log("[WM Casino Sync] First run - syncing last 7 days");
+      for (let i = 0; i < 7; i++) {
+        const date = now.clone().subtract(i, "days").format("YYYY-MM-DD");
+        daysToSync.push(date);
+      }
+    } else {
+      const lastSyncMoment = moment(lastSyncTime).tz("Asia/Kuala_Lumpur");
+      const daysSinceLastSync = now.diff(lastSyncMoment, "days");
+
+      console.log(
+        `[WM Casino Sync] Last sync: ${lastSyncMoment.format(
+          "YYYY-MM-DD HH:mm:ss"
+        )}`
+      );
+      console.log(
+        `[WM Casino Sync] Days since last sync: ${daysSinceLastSync}`
+      );
+
+      const daysBack = Math.min(daysSinceLastSync + 1, 7);
+      for (let i = 0; i < daysBack; i++) {
+        const date = now.clone().subtract(i, "days").format("YYYY-MM-DD");
+        daysToSync.push(date);
+      }
+    }
+
+    console.log(`[WM Casino Sync] Days to sync: ${daysToSync.join(", ")}`);
+
+    let totalSyncResults = {
+      totalDays: daysToSync.length,
+      daysProcessed: 0,
+      totalRecordsSaved: 0,
+      totalDuplicates: 0,
+      totalSkipped: 0,
+      details: [],
+    };
+
+    // Process each day
+    for (const date of daysToSync) {
+      try {
+        console.log(`\n[WM Casino Sync] ======== Processing ${date} ========`);
+
+        const dayResult = await syncWMCasinoForSingleDay(date);
+
+        totalSyncResults.daysProcessed++;
+        totalSyncResults.totalRecordsSaved += dayResult.recordsSaved;
+        totalSyncResults.totalDuplicates += dayResult.duplicates;
+        totalSyncResults.totalSkipped += dayResult.skipped;
+        totalSyncResults.details.push(dayResult);
+
+        // Delay between days (500ms)
+        if (daysToSync.indexOf(date) < daysToSync.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error(
+          `[WM Casino Sync] Failed to sync ${date}:`,
+          error.message
+        );
+        totalSyncResults.details.push({
+          date: date,
+          status: "failed",
+          error: error.message,
+        });
+      }
+    }
+
+    // Update last sync time
+    await updateLastSyncTime(now);
+
+    console.log(`\n[WM Casino Sync] ======== SUMMARY ========`);
+    console.log(
+      `Days processed: ${totalSyncResults.daysProcessed}/${totalSyncResults.totalDays}`
+    );
+    console.log(`Total records saved: ${totalSyncResults.totalRecordsSaved}`);
+    console.log(`Total duplicates: ${totalSyncResults.totalDuplicates}`);
+    console.log(`Total skipped (old): ${totalSyncResults.totalSkipped}`);
+
+    return {
+      success: true,
+      syncTime: now.format("YYYY-MM-DD HH:mm:ss"),
+      ...totalSyncResults,
+    };
+  } catch (error) {
+    console.error("[WM Casino Sync] Fatal error:", error.message);
+    throw error;
+  }
+};
+
 module.exports = router;
+module.exports.syncWMCasinoGameHistory = syncWMCasinoGameHistory;
