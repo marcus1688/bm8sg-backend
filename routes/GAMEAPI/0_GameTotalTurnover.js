@@ -24,7 +24,7 @@ const SportM9BetModal = require("../../models/sport_m9bet.model");
 const LiveWeCasinoModal = require("../../models/live_wecasino.model");
 const SlotSpadeGamingModal = require("../../models/slot_spadegaming.model");
 const SlotNextSpinModal = require("../../models/slot_nextspin.model");
-const LiveWMCasinoRebateModal = require("../../models/live_wmcasino.model");
+const LiveWMCasinoRebateModal = require("../../models/live_wmcasinorebate.model");
 
 const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
@@ -42,7 +42,6 @@ const getGameDataSummary = async (
 ) => {
   try {
     const timeField = useBetTime ? "betTime" : "createdAt";
-
     const results = await model.aggregate([
       {
         $match: {
