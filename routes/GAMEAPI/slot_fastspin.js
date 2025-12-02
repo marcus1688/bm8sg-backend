@@ -756,7 +756,7 @@ router.post("/api/fastspin", async (req, res) => {
           transactionData.depositamount = roundToTwoDecimals(reqAmount);
           transactionData.fish = true;
         } else {
-          transactionData.betamount = roundToTwoDecimals(reqAmount);
+          transactionData.betamount = roundToTwoDecimals(reqAmount || 0);
         }
 
         await SlotFastSpinModal.create(transactionData);
@@ -878,7 +878,7 @@ router.post("/api/fastspin", async (req, res) => {
               {
                 $set: {
                   withdrawamount: roundToTwoDecimals(reqAmount),
-                  betamount: roundToTwoDecimals(betAmount),
+                  betamount: roundToTwoDecimals(betAmount || 0),
                   settle: true,
                   settleId: transferId,
                 },
