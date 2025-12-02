@@ -313,6 +313,11 @@ const userSchema = new mongoose.Schema(
       spadegamingslot: { type: gameLockSchema, default: () => ({}) },
       spadegamingfish: { type: gameLockSchema, default: () => ({}) },
       nextspin: { type: gameLockSchema, default: () => ({}) },
+      playstar: { type: gameLockSchema, default: () => ({}) },
+      fastspinslot: { type: gameLockSchema, default: () => ({}) },
+      fastspinfish: { type: gameLockSchema, default: () => ({}) },
+      fachaislot: { type: gameLockSchema, default: () => ({}) },
+      fachaifish: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -403,6 +408,9 @@ const userSchema = new mongoose.Schema(
       type: String,
     },
     nextspinGameToken: {
+      type: String,
+    },
+    playstarGameToken: {
       type: String,
     },
   },

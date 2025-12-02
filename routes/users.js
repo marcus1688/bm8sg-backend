@@ -49,6 +49,9 @@ const SlotVPowerModal = require("../models/slot_vpower.model");
 const SlotBNGModal = require("../models/slot_bng.model");
 const SlotSpadeGamingModal = require("../models/slot_spadegaming.model");
 const SlotNextSpinModal = require("../models/slot_nextspin.model");
+const SlotPlayStarModal = require("../models/slot_playstar.model");
+const SlotFastSpinModal = require("../models/slot_fastspin.model");
+const SlotFachaiModal = require("../models/slot_fachai.model");
 
 const EsportTfGamingModal = require("../models/esport_tfgaming.model");
 
@@ -6016,6 +6019,23 @@ router.get(
             },
             "betTime"
           ),
+
+          getAllUsersTurnover(SlotPlayStarModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // FastSpin
+          getAllUsersTurnover(SlotFastSpinModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          // Fachai
+          getAllUsersTurnover(SlotFachaiModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
         ];
 
         const todayGameResults = await Promise.allSettled(todayGamePromises);

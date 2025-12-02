@@ -141,6 +141,26 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
         url: `${PUBLIC_APIURL}api/wmcasino/getturnoverforrebate`,
         name: "WM CASINO",
       },
+      {
+        url: `${PUBLIC_APIURL}api/playstar/getturnoverforrebate`,
+        name: "PLAYSTAR",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/fastspinslot/getturnoverforrebate`,
+        name: "FASTSPIN",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/fastspinfish/getturnoverforrebate`,
+        name: "FASTSPIN",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/fachaislot/getturnoverforrebate`,
+        name: "FACHAI",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/fachaifish/getturnoverforrebate`,
+        name: "FACHAI",
+      },
     ];
 
     const routePromises = routes.map((route) =>
