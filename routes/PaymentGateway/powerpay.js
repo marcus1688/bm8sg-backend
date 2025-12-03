@@ -38,6 +38,8 @@ const powerpaySecret = process.env.DGPAY_SECRET;
 const webURL = "https://www.bm8sg.vip/";
 const powerpayAPIURL = "https://dgpayapi.pwpgbo.com";
 const callbackUrl = "https://api.egm8sg.vip/api/powerpay/receivedcalled168";
+const paymentCallbackUrl =
+  "https://api.egm8sg.vip/api/powerpay/receivedtransferoutcalled168";
 const pgBankListID = "6929c7724d6d42211caf1cf4";
 
 function roundToTwoDecimals(num) {
@@ -160,7 +162,7 @@ router.post(
         senderFirstName: user.fullname?.split(" ")[0] || user.username,
         senderLastName: user.fullname?.split(" ").slice(1).join(" ") || "",
         senderNo: user.phonenumber || "",
-        username: user.username,
+        username: user.fullname,
         phone: user.phonenumber || "",
         bankCode: bankCode,
       });
@@ -682,6 +684,145 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
     return res.status(200).json({
       code: "100",
       description: "Error",
+    });
+  }
+});
+
+router.post("/admin/api/powerpay/requesttransfer/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: "User not found. Please try again or contact customer service for assistance.",
+          zh: "用户未找到，请重试或联系客服以获取帮助。",
+          ms: "Pengguna tidak ditemui, sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+          zh_hk: "用戶未找到，請重試或聯絡客服以獲取幫助。",
+          id: "Pengguna tidak ditemukan. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
+        },
+      });
+    }
+
+    const {
+      amount,
+      bankCode,
+      accountHolder,
+      accountNumber,
+      bankName,
+      transactionId,
+    } = req.body;
+
+    if (!amount || !bankCode || !accountHolder || !accountNumber) {
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: "Please complete all required fields",
+          zh: "请完成所有必填项",
+          zh_hk: "麻煩完成所有必填項目",
+          ms: "Sila lengkapkan semua medan yang diperlukan",
+          id: "Silakan lengkapi semua kolom yang diperlukan",
+        },
+      });
+    }
+
+    const formattedAmount = Number(amount).toFixed(2);
+
+    const reqDateTime = moment.utc().format("YYYY-MM-DD HH:mm:ss");
+
+    const receiverData = JSON.stringify({
+      receiverFirstName: accountHolder?.split(" ")[0] || accountHolder,
+      receiverLastName: accountHolder?.split(" ").slice(1).join(" ") || "",
+      receiverNo: accountNumber || "",
+      username: accountHolder,
+      bankCode: bankCode,
+    });
+
+    const securityToken = generateSecurityToken([
+      powerpayMerchantCode,
+      transactionId,
+      "SGD",
+      amount.toFixed(2),
+      paymentCallbackUrl,
+      reqDateTime,
+      receiverData,
+      powerpaySecret,
+    ]);
+
+    const response = await axios.post(
+      `${powerpayAPIURL}/ajax/api/v2/withdraw`,
+      querystring.stringify({
+        opCode: powerpayMerchantCode,
+        orderId: transactionId,
+        currency: "SGD",
+        amount: amount.toFixed(2),
+        callbackUrl: paymentCallbackUrl,
+        reqDateTime,
+        recipientInfo: receiverData,
+        securityToken,
+      }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    );
+    console.log(response.data);
+    return;
+    if (response.data.code !== "0") {
+      console.log(`POWERPAY API Error: ${response.data}`);
+
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: "Payout request failed",
+          zh: "申请代付失败",
+          zh_hk: "申請代付失敗",
+          ms: "Permintaan pembayaran gagal",
+          id: "Permintaan pembayaran gagal",
+        },
+      });
+    }
+
+    await Promise.all([
+      powerpayModal.create({
+        ourRefNo: transactionId,
+        paymentGatewayRefNo: response.data.data.vendor_id,
+        transfername: "N/A",
+        username: user.username,
+        amount: Number(formattedAmount),
+        transferType: bankName || bankCode,
+        transactiontype: "withdraw",
+        status: "Pending",
+        platformCharge: 0,
+        remark: "-",
+        promotionId: null,
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: {
+        en: "Payout request submitted successfully",
+        zh: "提交申请代付成功",
+        zh_hk: "提交申請代付成功",
+        ms: "Permintaan pembayaran berjaya diserahkan",
+        id: "Permintaan pembayaran berhasil diajukan",
+      },
+    });
+  } catch (error) {
+    console.error(
+      `Error in SKL99 API - User: ${req.user?.userId}, Amount: ${req.body?.amount}:`,
+      error.response?.data || error.message
+    );
+
+    return res.status(200).json({
+      success: false,
+      message: {
+        en: "Payout request failed",
+        zh: "申请代付失败",
+        zh_hk: "申請代付失敗",
+        ms: "Permintaan pembayaran gagal",
+        id: "Permintaan pembayaran gagal",
+      },
     });
   }
 });
