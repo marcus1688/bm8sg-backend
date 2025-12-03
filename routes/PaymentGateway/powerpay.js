@@ -38,6 +38,7 @@ const powerpaySecret = process.env.DGPAY_SECRET;
 const webURL = "https://www.bm8sg.vip/";
 const powerpayAPIURL = "https://dgpayapi.pwpgbo.com";
 const callbackUrl = "https://api.egm8sg.vip/api/powerpay/receivedcalled168";
+const pgBankListID = "6929c7724d6d42211caf1cf4";
 
 function roundToTwoDecimals(num) {
   return Math.round(num * 100) / 100;
@@ -55,6 +56,18 @@ function generateSecurityToken(fields) {
 function generateTransactionId(prefix = "") {
   const uuid = uuidv4().replace(/-/g, "").substring(0, 16);
   return prefix ? `${prefix}${uuid}` : uuid;
+}
+
+function verifyCallbackToken(params, secretKey) {
+  const expectedToken = generateSecurityToken([
+    powerpayMerchantCode,
+    params.orderId,
+    params.amount,
+    params.status,
+    secretKey,
+  ]);
+
+  return expectedToken === params.securityToken;
 }
 
 router.post(
@@ -258,186 +271,323 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
   try {
     const { orderId, amount, status } = req.body;
 
-    console.log(req.body);
-    return res.status(200).json({
-      code: "0",
-      description: "Success",
-    });
+    const isValidToken = verifyCallbackToken(req.body, powerpaySecret);
+
+    if (!isValidToken) {
+      console.error("POWERPAY: Invalid security token");
+      return res.status(200).json({
+        code: "-100",
+        description: "System parameter validation error",
+      });
+    }
 
     if (!orderId || amount === undefined || status === undefined) {
-      console.log("Missing required parameters:", { orderId, amount, status });
+      console.log("Missing required parameters:", {
+        orderId,
+        amount,
+        status,
+      });
       return res.status(200).json({
-        code: "100",
-        description: "Missing required parameters",
+        code: "-100",
+        description: "System parameter validation error",
       });
     }
 
     const statusMapping = {
-      "-20": "Expired",
+      "-20": "Reject",
       "-10": "Reject",
       0: "Pending",
-      5: "Pending Verification",
-      10: "Processing",
+      5: "Pending",
+      10: "Pending",
       20: "Success",
     };
 
     const statusCode = String(status);
     const statusText = statusMapping[statusCode] || "Unknown";
-
+    const roundedAmount = roundToTwoDecimals(amount);
     const cleanOrderId = getOrderIdBeforeAt(orderId);
 
-    const existingTrx = await dgPayModal.findOne({ ourRefNo: cleanOrderId });
+    const existingTrx = await powerpayModal
+      .findOne(
+        { paymentGatewayRefNo: orderId },
+        { _id: 1, username: 1, status: 1, createdAt: 1, promotionId: 1 }
+      )
+      .lean();
 
     if (!existingTrx) {
       console.log(`Transaction not found: ${orderId}, creating record`);
-      await dgPayModal.create({
+      await powerpayModal.create({
         username: "N/A",
-        ourRefNo: cleanOrderId,
-        amount: Number(amount),
+        transfername: "N/A",
+        ourRefNo: orderId,
+        paymentGatewayRefNo: orderId,
+        amount: roundedAmount,
+        transactiontype: "deposit",
         status: statusText,
+        platformCharge: 0,
         remark: `No transaction found with reference: ${orderId}. Created from callback.`,
-        createdAt: new Date(),
       });
 
       return res.status(200).json({
-        code: "0",
-        description: "Created new transaction record",
+        code: "-100",
+        description: "No transaction found",
       });
     }
 
     if (status === "20" && existingTrx.status === "Success") {
       console.log("Transaction already processed successfully, skipping");
       return res.status(200).json({
-        status: true,
-        message: "Transaction already processed successfully",
+        code: "0",
+        description: "Success",
       });
     }
 
     if (status === "20" && existingTrx.status !== "Success") {
-      const user = await User.findOne({ username: existingTrx.username });
+      const [user, gateway, kioskSettings, bank] = await Promise.all([
+        User.findOne(
+          { username: existingTrx.username },
+          {
+            _id: 1,
+            username: 1,
+            fullname: 1,
+            wallet: 1,
+            totaldeposit: 1,
+            firstDepositDate: 1,
+            duplicateIP: 1,
+            duplicateBank: 1,
+          }
+        ).lean(),
 
-      const setObject = {
-        lastdepositdate: new Date(),
-        ...(user &&
-          !user.firstDepositDate && {
-            firstDepositDate: existingTrx.createdAt,
-          }),
-      };
+        paymentgateway
+          .findOne(
+            { name: { $regex: /^powerpay$/i } },
+            { _id: 1, name: 1, balance: 1 }
+          )
+          .lean(),
 
-      const updatedUser = await User.findOneAndUpdate(
-        { _id: user._id },
-        {
-          $inc: {
-            wallet: roundToTwoDecimals(Number(amount)),
-            totaldeposit: roundToTwoDecimals(Number(amount)),
+        kioskbalance.findOne({}, { status: 1 }).lean(),
+
+        BankList.findById(pgBankListID, {
+          _id: 1,
+          bankname: 1,
+          ownername: 1,
+          bankaccount: 1,
+          qrimage: 1,
+          currentbalance: 1,
+        }).lean(),
+      ]);
+
+      if (!user) {
+        console.error(`User not found: ${existingTrx.username}`);
+        return res.status(200).json({
+          code: "-100",
+          description: "User not found",
+        });
+      }
+
+      if (!bank) {
+        console.error(`Bank not found: ${pgBankListID}`);
+        return res.status(200).json({
+          code: "-100",
+          description: "Bank not found",
+        });
+      }
+
+      const isNewDeposit = !user.firstDepositDate;
+      const oldGatewayBalance = gateway?.balance || 0;
+      const oldBankBalance = bank.currentbalance || 0;
+
+      const [
+        updatedUser,
+        newDeposit,
+        ,
+        walletLog,
+        updatedGateway,
+        updatedBank,
+      ] = await Promise.all([
+        User.findByIdAndUpdate(
+          user._id,
+          {
+            $inc: {
+              wallet: roundedAmount,
+              totaldeposit: roundedAmount,
+            },
+            $set: {
+              lastdepositdate: new Date(),
+              ...(isNewDeposit && {
+                firstDepositDate: existingTrx.createdAt,
+              }),
+            },
           },
-          $set: setObject,
-        },
-        { new: true }
-      );
+          { new: true, projection: { wallet: 1 } }
+        ).lean(),
 
-      const isNewDeposit =
-        !updatedUser.firstDepositDate ||
-        updatedUser.firstDepositDate.getTime() ===
-          existingTrx.createdAt.getTime();
-
-      const [newDeposit, updatedTrx, newWalletLog] = await Promise.all([
         Deposit.create({
           userId: user._id,
-          username: user.username || "unknown",
+          username: user.username,
           fullname: user.fullname || "unknown",
-          bankname: "DGPAY",
+          bankname: "POWERPAY",
           ownername: "Payment Gateway",
-          transfernumber: uuidv4(),
+          transfernumber: orderId,
           walletType: "Main",
           transactionType: "deposit",
           method: "auto",
           processBy: "admin",
-          amount: Number(amount),
+          amount: roundedAmount,
+          walletamount: user.wallet,
           remark: "-",
-          transactionId: cleanOrderId,
           status: "approved",
           processtime: "00:00:00",
           newDeposit: isNewDeposit,
+          transactionId: cleanOrderId,
+          duplicateIP: user.duplicateIP,
+          duplicateBank: user.duplicateBank,
         }),
 
-        // Update transaction status
-        dgPayModal.findByIdAndUpdate(
-          existingTrx._id,
-          { $set: { status: statusText } },
-          { new: true }
-        ),
+        powerpayModal.findByIdAndUpdate(existingTrx._id, {
+          $set: { status: statusText },
+        }),
 
         UserWalletLog.create({
           userId: user._id,
           transactionid: cleanOrderId,
           transactiontime: new Date(),
           transactiontype: "deposit",
-          amount: Number(amount),
+          amount: roundedAmount,
           status: "approved",
         }),
+
+        paymentgateway.findOneAndUpdate(
+          { name: { $regex: /^powerpay$/i } },
+          { $inc: { balance: roundedAmount } },
+          { new: true, projection: { _id: 1, name: 1, balance: 1 } }
+        ),
+
+        BankList.findByIdAndUpdate(
+          pgBankListID,
+          [
+            {
+              $set: {
+                totalDeposits: { $add: ["$totalDeposits", roundedAmount] },
+                currentbalance: {
+                  $subtract: [
+                    {
+                      $add: [
+                        "$startingbalance",
+                        { $add: ["$totalDeposits", roundedAmount] },
+                        "$totalCashIn",
+                      ],
+                    },
+                    {
+                      $add: ["$totalWithdrawals", "$totalCashOut"],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          { new: true, projection: { currentbalance: 1 } }
+        ).lean(),
       ]);
 
-      global.sendNotificationToUser(
-        user._id,
-        {
-          en: `Deposit MYR ${roundToTwoDecimals(Number(amount))} approved`,
-          ms: `Deposit MYR ${roundToTwoDecimals(
-            Number(amount)
-          )} telah diluluskan`,
-          zh: `存款 MYR ${roundToTwoDecimals(Number(amount))} 已批准`,
-        },
-        {
-          en: "Deposit Approved",
-          ms: "Deposit Diluluskan",
-          zh: "存款已批准",
-        }
-      );
-
-      setImmediate(() => {
-        try {
-          checkAndUpdateVIPLevel(user._id).catch((error) => {
-            console.error(
-              `Error checking/updating VIP level for user ${user._id}:`,
-              error
-            );
-          });
-        } catch (vipError) {
-          console.error(
-            `Error in VIP level check for user ${user._id}:`,
-            vipError
-          );
-        }
+      await BankTransactionLog.create({
+        bankName: bank.bankname,
+        ownername: bank.ownername,
+        bankAccount: bank.bankaccount,
+        remark: "-",
+        lastBalance: oldBankBalance,
+        currentBalance:
+          updatedBank?.currentbalance || oldBankBalance + roundedAmount,
+        processby: "admin",
+        qrimage: bank.qrimage,
+        playerusername: user.username,
+        playerfullname: user.fullname,
+        transactiontype: "deposit",
+        amount: roundedAmount,
       });
 
-      if (
-        parseFloat(amount) === 30 &&
-        updatedUser.luckySpinAmount > 0 &&
-        updatedUser.luckySpinClaim === false
-      ) {
-        submitLuckySpin(
-          updatedUser._id,
-          newDeposit._id,
-          "pending",
-          "manual",
-          "PENDING",
-          "manual"
-        ).catch((error) => {
-          console.error("Error submitting lucky spin:", error);
+      const depositCount = await LiveTransaction.countDocuments({
+        type: "deposit",
+      });
+
+      if (depositCount >= 5) {
+        await LiveTransaction.findOneAndUpdate(
+          { type: "deposit" },
+          {
+            $set: {
+              username: user.username,
+              amount: roundedAmount,
+              time: new Date(),
+            },
+          },
+          { sort: { time: 1 } }
+        );
+      } else {
+        await LiveTransaction.create({
+          type: "deposit",
+          username: user.username,
+          amount: roundedAmount,
+          time: new Date(),
+          status: "completed",
         });
       }
 
-      // Handle promotion if applicable
+      if (kioskSettings?.status) {
+        const kioskResult = await updateKioskBalance(
+          "subtract",
+          roundedAmount,
+          {
+            username: user.username,
+            transactionType: "deposit approval",
+            remark: `Deposit ID: ${newDeposit._id}`,
+            processBy: "admin",
+          }
+        );
+        if (!kioskResult.success) {
+          console.error("Failed to update kiosk balance for deposit");
+        }
+      }
+
+      setImmediate(() => {
+        checkAndUpdateVIPLevel(user._id).catch((error) => {
+          console.error(
+            `VIP level update error for user ${user._id}:`,
+            error.message
+          );
+        });
+        updateUserGameLocks(user._id);
+      });
+
+      await PaymentGatewayTransactionLog.create({
+        gatewayId: gateway?._id,
+        gatewayName: gateway?.name || "POWERPAY",
+        transactiontype: "deposit",
+        amount: roundedAmount,
+        lastBalance: oldGatewayBalance,
+        currentBalance:
+          updatedGateway?.balance || oldGatewayBalance + roundedAmount,
+        remark: `Deposit from ${user.username}`,
+        playerusername: user.username,
+        processby: "system",
+        depositId: newDeposit._id,
+      });
+
       if (existingTrx.promotionId) {
         try {
-          const promotion = await Promotion.findById(existingTrx.promotionId);
+          const promotion = await Promotion.findById(existingTrx.promotionId, {
+            claimtype: 1,
+            bonuspercentage: 1,
+            bonusexact: 1,
+            maxbonus: 1,
+            maintitle: 1,
+            maintitleEN: 1,
+          }).lean();
 
           if (!promotion) {
-            console.log("DGPAY, couldn't find promotion");
-            // Don't return here, continue processing the rest of the callback
+            console.log("POWERPAY, couldn't find promotion");
           } else {
-            // Calculate bonus amount
             let bonusAmount = 0;
+
             if (promotion.claimtype === "Percentage") {
               bonusAmount =
                 (Number(amount) * parseFloat(promotion.bonuspercentage)) / 100;
@@ -452,112 +602,24 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
             }
 
             if (bonusAmount > 0) {
-              const [
-                GW99Result,
-                AlipayResult,
-                LionKingResult,
-                Mega888Result,
-                Pussy888Result,
-              ] = await Promise.all([
-                checkGW99Balance(user.username).catch((error) => ({
-                  success: false,
-                  error: error.message || "Connection failed",
-                  balance: 0,
-                })),
-                checkAlipayBalance(user.username).catch((error) => ({
-                  success: false,
-                  error: error.message || "Connection failed",
-                  balance: 0,
-                })),
-                checkLionKingBalance(user.username).catch((error) => ({
-                  success: false,
-                  error: error.message || "Connection failed",
-                  balance: 0,
-                })),
-                checkMEGA888Balance(user.username).catch((error) => ({
-                  success: false,
-                  error: error.message || "Connection failed",
-                  balance: 0,
-                })),
-                checkPussy888Balance(user.username).catch((error) => ({
-                  success: false,
-                  error: error.message || "Connection failed",
-                  balance: 0,
-                })),
-              ]);
-
-              const balanceFetchErrors = {};
-
-              let totalGameBalance = 0;
-
-              if (GW99Result.success && GW99Result.balance != null) {
-                totalGameBalance += Number(GW99Result.balance) || 0;
-              } else {
-                console.error("GW99 balance check error:", GW99Result);
-                balanceFetchErrors.gw99 = {
-                  error: GW99Result.error || "Failed to fetch balance",
-                  // timestamp: new Date().toISOString(),
-                };
-              }
-
-              if (AlipayResult.success && AlipayResult.balance != null) {
-                totalGameBalance += Number(AlipayResult.balance) || 0;
-              } else {
-                console.error("Alipay balance check error:", AlipayResult);
-                balanceFetchErrors.alipay = {
-                  error: AlipayResult.error || "Failed to fetch balance",
-                  // timestamp: new Date().toISOString(),
-                };
-              }
-
-              if (LionKingResult.success && LionKingResult.balance != null) {
-                totalGameBalance += Number(LionKingResult.balance) || 0;
-              } else {
-                console.error("LionKing balance check error:", LionKingResult);
-                balanceFetchErrors.lionking = {
-                  error: LionKingResult.error || "Failed to fetch balance",
-                  // timestamp: new Date().toISOString(),
-                };
-              }
-
-              if (Mega888Result.success && Mega888Result.balance != null) {
-                totalGameBalance += Number(Mega888Result.balance) || 0;
-              } else {
-                console.error("MEGA888 balance check error:", Mega888Result);
-                balanceFetchErrors.mega888 = {
-                  error: Mega888Result.error || "Failed to fetch balance",
-                  // timestamp: new Date().toISOString(),
-                };
-              }
-
-              if (Pussy888Result.success && Pussy888Result.balance != null) {
-                totalGameBalance += Number(Pussy888Result.balance) || 0;
-              } else {
-                console.error("PUSSY888 balance check error:", Pussy888Result);
-                balanceFetchErrors.pussy888 = {
-                  error: Pussy888Result.error || "Failed to fetch balance",
-                  // timestamp: new Date().toISOString(),
-                };
-              }
-
-              const totalWalletAmount =
-                Number(user.wallet || 0) + totalGameBalance;
-
-              // Create bonus transaction
+              bonusAmount = roundToTwoDecimals(bonusAmount);
               const bonusTransactionId = uuidv4();
 
-              // Process bonus in parallel
-              await Promise.all([
+              const [, newBonus] = await Promise.all([
+                User.findByIdAndUpdate(user._id, {
+                  $inc: { wallet: bonusAmount },
+                }),
+
                 Bonus.create({
                   transactionId: bonusTransactionId,
                   userId: user._id,
                   username: user.username,
-                  fullname: user.fullname,
+                  fullname: user.fullname || "unknown",
                   transactionType: "bonus",
                   processBy: "admin",
                   amount: bonusAmount,
-                  walletamount: totalWalletAmount,
-                  status: "pending",
+                  walletamount: updatedUser?.wallet || user.wallet,
+                  status: "approved",
                   method: "manual",
                   remark: "-",
                   promotionname: promotion.maintitle,
@@ -572,21 +634,36 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
                   transactionid: bonusTransactionId,
                   transactiontime: new Date(),
                   transactiontype: "bonus",
-                  amount: Number(bonusAmount),
-                  status: "pending",
+                  amount: bonusAmount,
+                  status: "approved",
                   promotionnameCN: promotion.maintitle,
                   promotionnameEN: promotion.maintitleEN,
                 }),
               ]);
+
+              if (kioskSettings?.status) {
+                const kioskResult = await updateKioskBalance(
+                  "subtract",
+                  bonusAmount,
+                  {
+                    username: user.username,
+                    transactionType: "bonus approval",
+                    remark: `Bonus ID: ${newBonus._id}`,
+                    processBy: "admin",
+                  }
+                );
+                if (!kioskResult.success) {
+                  console.error("Failed to update kiosk balance for bonus");
+                }
+              }
             }
           }
         } catch (promotionError) {
           console.error("Error processing promotion:", promotionError);
-          // Continue processing to ensure callback success
         }
       }
-    } else if (status !== "20") {
-      await dgPayModal.findByIdAndUpdate(existingTrx._id, {
+    } else {
+      await powerpayModal.findByIdAndUpdate(existingTrx._id, {
         $set: { status: statusText },
       });
     }
