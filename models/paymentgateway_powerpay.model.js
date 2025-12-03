@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const moment = require("moment");
 
-const surepaySchema = new mongoose.Schema(
+const powerpaySchema = new mongoose.Schema(
   {
     ourRefNo: {
       type: String,
@@ -47,6 +47,6 @@ const surepaySchema = new mongoose.Schema(
   }
 );
 
-const surepayModal = mongoose.model("surepayModal", surepaySchema);
+const powerpayModal = mongoose.model("powerpayModal", powerpaySchema);
 
-module.exports = surepayModal;
+module.exports = powerpayModal;

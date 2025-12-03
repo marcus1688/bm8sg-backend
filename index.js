@@ -80,6 +80,9 @@ const slotNextSpinRouter = require("./routes/GAMEAPI/slot_nextspin");
 const slotPlayStarRouter = require("./routes/GAMEAPI/slot_playstar");
 const slotFastspinRouter = require("./routes/GAMEAPI/slot_fastspin");
 const slotFachaiRouter = require("./routes/GAMEAPI/slot_fachai");
+const slotRSGRouter = require("./routes/GAMEAPI/slot_rsg");
+const slotCQ9Router = require("./routes/GAMEAPI/slot_cq9");
+const slotPPRouter = require("./routes/GAMEAPI/slot_livepp");
 
 const liveSAGamingRouter = require("./routes/GAMEAPI/live_sagaming");
 const liveYeebetRouter = require("./routes/GAMEAPI/live_yeebet");
@@ -92,9 +95,7 @@ const sportM9BetRouter = require("./routes/GAMEAPI/sports_m9bet");
 
 const { syncWMCasinoGameHistory } = require("./routes/GAMEAPI/live_wmcasino");
 
-const paymentGatewaySKL99Router = require("./routes/PaymentGateway/skl99");
-const paymentGatewaySurePayRouter = require("./routes/PaymentGateway/surepay");
-const paymentGatewayFPayRouter = require("./routes/PaymentGateway/fpay");
+const paymentgatewayPowerpayRouter = require("./routes/PaymentGateway/powerpay");
 
 const importGameListRouter = require("./routes/GAMEAPI/0_ImportGameList");
 const gameStatusRouter = require("./routes/GAMEAPI/0_GameStatus");
@@ -866,6 +867,9 @@ app.use(slotNextSpinRouter);
 app.use(slotPlayStarRouter);
 app.use(slotFastspinRouter);
 app.use(slotFachaiRouter);
+app.use(slotRSGRouter);
+app.use(slotCQ9Router);
+app.use(slotPPRouter);
 
 app.use(liveSAGamingRouter);
 app.use(liveYeebetRouter);
@@ -876,9 +880,7 @@ app.use(esportTFGamingRouter);
 
 app.use(sportM9BetRouter);
 
-app.use(paymentGatewaySKL99Router);
-app.use(paymentGatewaySurePayRouter);
-app.use(paymentGatewayFPayRouter);
+app.use(paymentgatewayPowerpayRouter);
 
 app.use(importGameListRouter);
 app.use(gameStatusRouter);

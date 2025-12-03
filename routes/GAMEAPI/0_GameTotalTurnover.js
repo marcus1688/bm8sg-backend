@@ -28,6 +28,8 @@ const LiveWMCasinoRebateModal = require("../../models/live_wmcasinorebate.model"
 const SlotPlayStarModal = require("../../models/slot_playstar.model");
 const SlotFastSpinModal = require("../../models/slot_fastspin.model");
 const SlotFachaiModal = require("../../models/slot_fachai.model");
+const SlotCQ9Modal = require("../../models/slot_cq9.model");
+const SlotLivePPModal = require("../../models/slot_live_pp.model");
 
 const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
@@ -426,6 +428,43 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
           },
         },
       },
+      cq9: {
+        $match: {
+          cancel: { $ne: true },
+          refund: { $ne: true },
+          settle: true,
+        },
+        $group: {
+          _id: null,
+          turnover: { $sum: { $ifNull: ["$betamount", 0] } },
+          winLoss: {
+            $sum: {
+              $subtract: [
+                { $ifNull: ["$settleamount", 0] },
+                { $ifNull: ["$betamount", 0] },
+              ],
+            },
+          },
+        },
+      },
+      pp: {
+        $match: {
+          refunded: false,
+          ended: true,
+        },
+        $group: {
+          _id: null,
+          turnover: { $sum: { $ifNull: ["$betamount", 0] } },
+          winLoss: {
+            $sum: {
+              $subtract: [
+                { $ifNull: ["$settleamount", 0] },
+                { $ifNull: ["$betamount", 0] },
+              ],
+            },
+          },
+        },
+      },
     };
 
     // Create an array of promises for all aggregations to match player-report
@@ -550,6 +589,20 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
         end,
         aggregations.fachai
       ),
+      getGameDataSummary(
+        SlotCQ9Modal,
+        user.gameId,
+        start,
+        end,
+        aggregations.cq9
+      ),
+      getGameDataSummary(
+        SlotLivePPModal,
+        user.gameId,
+        start,
+        end,
+        aggregations.pp
+      ),
     ]);
 
     // Create a result map from the resolved promises
@@ -621,6 +674,14 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
       fachai:
         promiseResults[16].status === "fulfilled"
           ? promiseResults[16].value
+          : { turnover: 0, winLoss: 0 },
+      cq9:
+        promiseResults[17].status === "fulfilled"
+          ? promiseResults[17].value
+          : { turnover: 0, winLoss: 0 },
+      pp:
+        promiseResults[18].status === "fulfilled"
+          ? promiseResults[18].value
           : { turnover: 0, winLoss: 0 },
     };
     // Calculate total turnover and win loss
@@ -803,6 +864,25 @@ router.post("/api/games/active-games", authenticateToken, async (req, res) => {
         },
         "Fachai"
       ),
+      queryModel(
+        SlotCQ9Modal,
+        {
+          $or: [{ settle: false }, { settle: { $exists: false } }],
+          cancel: { $ne: true },
+          refund: { $ne: true },
+          gametype: "SLOT",
+        },
+        "CQ9"
+      ),
+      queryModel(
+        SlotLivePPModal,
+        {
+          $or: [{ ended: false }, { ended: { $exists: false } }],
+          refunded: false,
+          gameType: "Slot",
+        },
+        "Pragmatic Play"
+      ),
     ]);
 
     // Process results - much faster since we're only getting 1 game per provider
@@ -978,6 +1058,25 @@ router.post(
           },
           "Fachai"
         ),
+        queryModel(
+          SlotCQ9Modal,
+          {
+            $or: [{ settle: false }, { settle: { $exists: false } }],
+            cancel: { $ne: true },
+            refund: { $ne: true },
+            gametype: "SLOT",
+          },
+          "CQ9"
+        ),
+        queryModel(
+          SlotLivePPModal,
+          {
+            $or: [{ ended: false }, { ended: { $exists: false } }],
+            refunded: false,
+            gameType: "Slot",
+          },
+          "Pragmatic Play"
+        ),
       ]);
 
       // Process results and combine all active games
@@ -1076,6 +1175,8 @@ router.post(
         PlayStar: SlotPlayStarModal,
         Fastspin: SlotFastSpinModal,
         Fachai: SlotFachaiModal,
+        CQ9: SlotCQ9Modal,
+        "Pragmatic Play": SlotLivePPModal,
       };
 
       const Model = providerModels[gameName];
@@ -1124,6 +1225,10 @@ router.post(
         let isAlreadyCanceled = false;
 
         switch (gameName) {
+          case "CQ9":
+            isAlreadySettled = gameRecord.settle === true;
+            isAlreadyCanceled = gameRecord.refund === true;
+            break;
           case "EpicWin":
           case "BT Gaming":
           case "AceWin":
@@ -1184,6 +1289,9 @@ router.post(
         }
       } else if (action === "cancel") {
         switch (gameName) {
+          case "CQ9":
+            updateData = { refund: true };
+            break;
           case "VPower":
             updateData = { settle: true };
             break;

@@ -52,6 +52,8 @@ const SlotNextSpinModal = require("../models/slot_nextspin.model");
 const SlotPlayStarModal = require("../models/slot_playstar.model");
 const SlotFastSpinModal = require("../models/slot_fastspin.model");
 const SlotFachaiModal = require("../models/slot_fachai.model");
+const SlotCQ9Modal = require("../models/slot_cq9.model");
+const SlotLivePPModal = require("../models/slot_live_pp.model");
 
 const EsportTfGamingModal = require("../models/esport_tfgaming.model");
 
@@ -6035,6 +6037,18 @@ router.get(
           getAllUsersTurnover(SlotFachaiModal, {
             cancel: { $ne: true },
             settle: true,
+          }),
+
+          // CQ9 - Already included
+          getAllUsersTurnover(SlotCQ9Modal, {
+            cancel: { $ne: true },
+            refund: { $ne: true },
+            settle: true,
+          }),
+
+          getAllUsersTurnover(SlotLivePPModal, {
+            refunded: false,
+            ended: true,
           }),
         ];
 
