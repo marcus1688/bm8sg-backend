@@ -165,22 +165,6 @@ router.post(
         powerpaySecret,
       ]);
 
-      const data = {
-        opCode: powerpayMerchantCode,
-        paymentType: "P2P",
-        orderId: refno,
-        currency: "SGD",
-        amount: trfAmt,
-        callbackUrl,
-        redirectUrl: webURL,
-        reqDateTime,
-        sender: senderData,
-        securityToken,
-      };
-
-      console.log(data);
-      console.log(`${powerpayAPIURL}/ajax/api/v2/deposit`);
-
       const response = await axios.post(
         `${powerpayAPIURL}/ajax/api/v2/deposit`,
         querystring.stringify({
@@ -198,57 +182,67 @@ router.post(
         { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
       );
 
-      console.log(response.data);
-      return;
-      // Log only important information
-      if (responseData.code !== "0") {
-        console.log(`DGPay API Error: ${JSON.stringify(responseData)}`);
+      if (response.data.code !== "0") {
+        console.log(`POWEREPAY API Error: ${JSON.stringify(response.data)}`);
 
         return res.status(200).json({
           success: false,
           message: {
-            en: "Failed to generate payment link",
-            zh: "生成支付链接失败",
-            ms: "Gagal menjana pautan pembayaran",
+            en: "Failed to generate payment link. Please try again or contact customer service for assistance.",
+            zh: "生成支付链接失败，请重试或联系客服以获取帮助。",
+            zh_hk: "生成支付連結失敗，麻煩老闆再試多次或者聯絡客服幫手。",
+            ms: "Gagal menjana pautan pembayaran. Sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+            id: "Gagal membuat tautan pembayaran. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
           },
         });
       }
 
+      const BANK_CODE_DISPLAY_NAMES = {
+        DBS: "DBS",
+        OCBC: "OCBC",
+      };
+
       await Promise.all([
-        // Create DGPay record
-        dgPayModal.create({
+        powerpayModal.create({
           ourRefNo: refno,
+          paymentGatewayRefNo: response.data.providerRefId,
+          transfername: user.fullname,
           username: user.username,
-          amount: trfAmt,
-          bankCode,
+          amount: Number(trfAmt),
+          transferType: BANK_CODE_DISPLAY_NAMES[bankCode] || bankCode,
+          transactiontype: "deposit",
           status: "Pending",
-          platformCharge: responseData.agentFee || 0,
+          platformCharge: response.data.adminFee,
           remark: "-",
-          promotionId: promotionId,
+          promotionId: promotionId || null,
         }),
       ]);
 
       return res.status(200).json({
         success: true,
         message: {
-          en: "Payment link generated successfully",
-          zh: "支付链接生成成功",
-          ms: "Pautan pembayaran berjaya dijana",
+          en: "Redirecting to payment page...",
+          zh: "正在跳转至支付页面...",
+          zh_hk: "正在跳緊去支付頁面...",
+          ms: "Mengalihkan ke halaman pembayaran...",
+          id: "Mengarahkan ke halaman pembayaran...",
         },
-        url: responseData.paymentUrl,
+        url: response.data.paymentUrl,
       });
     } catch (error) {
       console.error(
-        `Error in DGPay API - User: ${req.user?.userId}, Amount: ${req.body?.trfAmt}:`,
+        `Error in POWERPAY API - User: ${req.user?.userId}, Amount: ${req.body?.trfAmt}:`,
         error.response?.data || error.message
       );
 
       return res.status(200).json({
         success: false,
         message: {
-          en: "Failed to generate payment link",
-          zh: "生成支付链接失败",
-          ms: "Gagal menjana pautan pembayaran",
+          en: "Failed to generate payment link. Please try again or contact customer service for assistance.",
+          zh: "生成支付链接失败，请重试或联系客服以获取帮助。",
+          zh_hk: "生成支付連結失敗，麻煩老闆再試多次或者聯絡客服幫手。",
+          ms: "Gagal menjana pautan pembayaran. Sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+          id: "Gagal membuat tautan pembayaran. Silakan coba lagi atau hubungi layanan pelanggan untuk bantuan.",
         },
       });
     }
@@ -260,9 +254,15 @@ function getOrderIdBeforeAt(orderId) {
   return orderId.split("@")[0];
 }
 
-router.post("/api/dgpay/receivedcalled168", async (req, res) => {
+router.post("/api/powerpay/receivedcalled168", async (req, res) => {
   try {
     const { orderId, amount, status } = req.body;
+
+    console.log(req.body);
+    return res.status(200).json({
+      code: "0",
+      description: "Success",
+    });
 
     if (!orderId || amount === undefined || status === undefined) {
       console.log("Missing required parameters:", { orderId, amount, status });
@@ -621,20 +621,20 @@ router.get("/admin/api/dgpaydata", authenticateAdminToken, async (req, res) => {
       };
     }
 
-    const dgData = await dgPayModal
+    const dgData = await powerpayModal
       .find(dateFilter)
       .sort({ createdAt: -1 })
       .lean();
     res.status(200).json({
       success: true,
-      message: "DGPay retrieved successfully",
+      message: "POWERPAY retrieved successfully",
       data: dgData,
     });
   } catch (error) {
-    console.error("Error retrieving user bonus DGPay:", error);
+    console.error("Error retrieving user bonus POWERPAY:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to retrieve bonus DGPay",
+      message: "Failed to retrieve bonus POWERPAY",
       error: error.message,
     });
   }
