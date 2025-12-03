@@ -331,8 +331,8 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
       });
 
       return res.status(200).json({
-        code: "-100",
-        description: "No transaction found",
+        code: "0",
+        description: "Success",
       });
     }
 
