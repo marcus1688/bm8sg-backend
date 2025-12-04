@@ -832,6 +832,430 @@ router.post("/admin/api/powerpay/requesttransfer/:userId", async (req, res) => {
   }
 });
 
+async function handleRejectedWithdrawalApproval(
+  existingTrx,
+  orderId,
+  roundedAmount,
+  user
+) {
+  const [, withdraw, updatedUser] = await Promise.all([
+    UserWalletLog.findOneAndUpdate(
+      { transactionid: orderId },
+      { $set: { status: "approved" } }
+    ),
+
+    Withdraw.findOneAndUpdate(
+      { transactionId: orderId },
+      {
+        $set: {
+          status: "approved",
+          processBy: "admin",
+          processtime: "00:00:00",
+        },
+      },
+      {
+        new: false,
+        projection: { _id: 1, amount: 1, withdrawbankid: 1, remark: 1 },
+      }
+    ).lean(),
+
+    User.findOneAndUpdate(
+      { username: existingTrx.username },
+      { $inc: { wallet: -roundedAmount } },
+      {
+        new: true,
+        projection: { _id: 1, username: 1, fullname: 1, wallet: 1 },
+      }
+    ).lean(),
+  ]);
+
+  if (!withdraw) {
+    console.error(`Withdraw record not found for orderId: ${orderId}`);
+    return;
+  }
+
+  const [kioskSettings, bank] = await Promise.all([
+    kioskbalance.findOne({}, { status: 1 }).lean(),
+    BankList.findById(withdraw.withdrawbankid, {
+      _id: 1,
+      bankname: 1,
+      ownername: 1,
+      bankaccount: 1,
+      qrimage: 1,
+      currentbalance: 1,
+    }).lean(),
+  ]);
+
+  if (!bank) {
+    console.error(
+      `Bank not found for withdrawbankid: ${withdraw.withdrawbankid}`
+    );
+    return;
+  }
+
+  if (kioskSettings?.status) {
+    const kioskResult = await updateKioskBalance("add", withdraw.amount, {
+      username: existingTrx.username,
+      transactionType: "withdraw approval",
+      remark: `Withdraw ID: ${withdraw._id}`,
+      processBy: "admin",
+    });
+
+    if (!kioskResult.success) {
+      console.error("Failed to update kiosk balance for withdraw approval");
+    }
+  }
+
+  await Promise.all([
+    BankList.findByIdAndUpdate(withdraw.withdrawbankid, {
+      $inc: {
+        currentbalance: -withdraw.amount,
+        totalWithdrawals: withdraw.amount,
+      },
+    }),
+
+    BankTransactionLog.create({
+      bankName: bank.bankname,
+      ownername: bank.ownername,
+      bankAccount: bank.bankaccount,
+      remark: withdraw.remark || "-",
+      lastBalance: bank.currentbalance,
+      currentBalance: bank.currentbalance - withdraw.amount,
+      processby: "admin",
+      transactiontype: "withdraw",
+      amount: withdraw.amount,
+      qrimage: bank.qrimage,
+      playerusername: updatedUser?.username || existingTrx.username,
+      playerfullname: updatedUser?.fullname || "N/A",
+    }),
+  ]);
+
+  console.log(
+    `Rejected withdrawal re-approved: ${orderId}, User ${existingTrx.username}, Amount: ${roundedAmount}`
+  );
+}
+
+async function handleApprovedWithdrawalReject(
+  existingTrx,
+  orderId,
+  roundedAmount,
+  user
+) {
+  const gateway = await paymentgateway
+    .findOne(
+      { name: { $regex: /^powerpay$/i } },
+      { _id: 1, name: 1, balance: 1 }
+    )
+    .lean();
+
+  if (!gateway) {
+    console.error("Gateway not found for withdrawal rejection");
+    return;
+  }
+
+  const oldGatewayBalance = gateway.balance || 0;
+
+  const updatedGateway = await paymentgateway.findOneAndUpdate(
+    { name: { $regex: /^powerpay$/i } },
+    { $inc: { balance: roundedAmount } },
+    { new: true, projection: { _id: 1, name: 1, balance: 1 } }
+  );
+
+  await PaymentGatewayTransactionLog.create({
+    gatewayId: gateway._id,
+    gatewayName: gateway.name || "POWERPAY",
+    transactiontype: "reverted withdraw",
+    amount: roundedAmount,
+    lastBalance: oldGatewayBalance,
+    currentBalance:
+      updatedGateway?.balance || oldGatewayBalance + roundedAmount,
+    remark: `Revert withdraw from ${user.username}`,
+    playerusername: user.username,
+    processby: "system",
+  });
+
+  console.log(
+    `Approved withdrawal re-rejected: ${orderId}, User ${existingTrx.username}, Amount: ${roundedAmount}`
+  );
+}
+
+router.post("/api/powerpay/receivedtransferoutcalled168", async (req, res) => {
+  try {
+    const { orderId, amount, status } = req.body;
+
+    const isValidToken = verifyCallbackToken(req.body, powerpaySecret);
+
+    if (!isValidToken) {
+      console.error("POWERPAY: Invalid security token");
+      return res.status(200).json({
+        code: "-100",
+        description: "System parameter validation error",
+      });
+    }
+
+    if (!orderId || amount == undefined || status === undefined) {
+      console.log("Missing required parameters:", {
+        orderId,
+        amount,
+        status,
+      });
+      return res.status(200).json({
+        code: "-100",
+        description: "System parameter validation error",
+      });
+    }
+
+    const statusMapping = {
+      "-20": "Reject",
+      "-10": "Reject",
+      0: "Pending",
+      5: "Pending",
+      10: "Pending",
+      20: "Success",
+    };
+
+    const statusCode = String(status);
+    const statusText = statusMapping[statusCode] || "Unknown";
+    const roundedAmount = roundToTwoDecimals(amount);
+    const cleanOrderId = getOrderIdBeforeAt(orderId);
+
+    const existingTrx = await powerpayModal
+      .findOne(
+        { paymentGatewayRefNo: orderId },
+        {
+          _id: 1,
+          username: 1,
+          status: 1,
+          createdAt: 1,
+          promotionId: 1,
+          ourRefNo: 1,
+        }
+      )
+      .lean();
+
+    if (!existingTrx) {
+      console.log(`Transaction not found: ${orderId}, creating record`);
+      await powerpayModal.create({
+        username: "N/A",
+        transfername: "N/A",
+        ourRefNo: cleanOrderId,
+        paymentGatewayRefNo: orderId,
+        amount: roundedAmount,
+        transactiontype: "withdraw",
+        status: statusText,
+        platformCharge: 0,
+        remark: `No transaction found with reference: ${orderId}. Created from callback.`,
+      });
+
+      return res.status(200).json({
+        code: "0",
+        description: "Success",
+      });
+    }
+
+    if (status === "20" && existingTrx.status === "Success") {
+      console.log("Transaction already processed successfully, skipping");
+      return res.status(200).json({
+        code: "0",
+        description: "Success",
+      });
+    }
+
+    if (status === "20" && existingTrx.status !== "Success") {
+      const [user, gateway] = await Promise.all([
+        User.findOne(
+          { username: existingTrx.username },
+          {
+            _id: 1,
+            username: 1,
+            fullname: 1,
+            wallet: 1,
+            duplicateIP: 1,
+            duplicateBank: 1,
+          }
+        ).lean(),
+
+        paymentgateway
+          .findOne(
+            { name: { $regex: /^powerpay$/i } },
+            { _id: 1, name: 1, balance: 1 }
+          )
+          .lean(),
+      ]);
+
+      if (!user) {
+        console.error(`User not found: ${existingTrx.username}`);
+        return res.status(200).json({
+          code: "-100",
+          description: "User not found",
+        });
+      }
+
+      if (existingTrx.status === "Reject") {
+        await handleRejectedWithdrawalApproval(
+          existingTrx,
+          existingTrx.ourRefNo,
+          roundedAmount,
+          user
+        );
+      }
+
+      const oldGatewayBalance = gateway?.balance || 0;
+
+      const [, updatedGateway] = await Promise.all([
+        powerpayModal.findByIdAndUpdate(existingTrx._id, {
+          $set: { status: statusText },
+        }),
+
+        paymentgateway.findOneAndUpdate(
+          { name: { $regex: /^powerpay$/i } },
+          { $inc: { balance: -roundedAmount } },
+          { new: true, projection: { _id: 1, name: 1, balance: 1 } }
+        ),
+      ]);
+
+      await PaymentGatewayTransactionLog.create({
+        gatewayId: gateway?._id,
+        gatewayName: gateway?.name || "POWERPAY",
+        transactiontype: "withdraw",
+        amount: roundedAmount,
+        lastBalance: oldGatewayBalance,
+        currentBalance:
+          updatedGateway?.balance || oldGatewayBalance - roundedAmount,
+        remark: `Withdraw from ${user.username}`,
+        playerusername: user.username,
+        processby: "system",
+      });
+    } else if (status === "FAILED" && existingTrx.status !== "Reject") {
+      const [, , withdraw, updatedUser] = await Promise.all([
+        powerpayModal.findByIdAndUpdate(existingTrx._id, {
+          $set: { status: statusText },
+        }),
+
+        UserWalletLog.findOneAndUpdate(
+          { transactionid: existingTrx.ourRefNo },
+          { $set: { status: "cancel" } }
+        ),
+
+        Withdraw.findOneAndUpdate(
+          { transactionId: existingTrx.ourRefNo },
+          {
+            $set: {
+              status: "reverted",
+              processBy: "admin",
+              processtime: "00:00:00",
+            },
+          },
+          {
+            new: false,
+            projection: { _id: 1, amount: 1, withdrawbankid: 1, remark: 1 },
+          }
+        ).lean(),
+
+        User.findOneAndUpdate(
+          { username: existingTrx.username },
+          { $inc: { wallet: roundedAmount } },
+          {
+            new: true,
+            projection: { _id: 1, username: 1, fullname: 1, wallet: 1 },
+          }
+        ).lean(),
+      ]);
+
+      if (existingTrx.status === "Success") {
+        await handleApprovedWithdrawalReject(
+          existingTrx,
+          existingTrx.ourRefNo,
+          roundedAmount,
+          updatedUser
+        );
+      }
+
+      if (!withdraw) {
+        console.log(`Withdraw not found for orderId: ${existingTrx.ourRefNo}`);
+        return res.status(200).json(req.body);
+      }
+
+      const [kioskSettings, bank] = await Promise.all([
+        kioskbalance.findOne({}, { status: 1 }).lean(),
+        BankList.findById(withdraw.withdrawbankid, {
+          _id: 1,
+          bankname: 1,
+          ownername: 1,
+          bankaccount: 1,
+          qrimage: 1,
+          currentbalance: 1,
+        }).lean(),
+      ]);
+
+      if (!bank) {
+        console.log("Invalid bank powerpay callback");
+        return res.status(200).json(req.body);
+      }
+
+      if (kioskSettings?.status) {
+        const kioskResult = await updateKioskBalance(
+          "subtract",
+          withdraw.amount,
+          {
+            username: existingTrx.username,
+            transactionType: "withdraw reverted",
+            remark: `Withdraw ID: ${withdraw._id}`,
+            processBy: "admin",
+          }
+        );
+        if (!kioskResult.success) {
+          console.error("Failed to update kiosk balance for withdraw revert");
+        }
+      }
+
+      await Promise.all([
+        BankList.findByIdAndUpdate(withdraw.withdrawbankid, {
+          $inc: {
+            currentbalance: withdraw.amount,
+            totalWithdrawals: -withdraw.amount,
+          },
+        }),
+
+        BankTransactionLog.create({
+          bankName: bank.bankname,
+          ownername: bank.ownername,
+          bankAccount: bank.bankaccount,
+          remark: withdraw.remark || "-",
+          lastBalance: bank.currentbalance,
+          currentBalance: bank.currentbalance + withdraw.amount,
+          processby: "admin",
+          transactiontype: "reverted withdraw",
+          amount: withdraw.amount,
+          qrimage: bank.qrimage,
+          playerusername: updatedUser?.username || existingTrx.username,
+          playerfullname: updatedUser?.fullname || "N/A",
+        }),
+      ]);
+
+      console.log(
+        `Transaction rejected: ${orderId}, User ${existingTrx.username} refunded ${roundedAmount}, New wallet: ${updatedUser?.wallet}`
+      );
+    }
+
+    return res.status(200).json({
+      code: "0",
+      description: "Success",
+    });
+  } catch (error) {
+    console.error("Payment callback processing error:", {
+      error: error.message,
+      body: req.body,
+      timestamp: moment().utc().format(),
+      stack: error.stack,
+    });
+    return res.status(200).json({
+      code: "100",
+      description: "Error",
+    });
+  }
+});
+
 router.get("/admin/api/dgpaydata", authenticateAdminToken, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
