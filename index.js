@@ -83,6 +83,7 @@ const slotFachaiRouter = require("./routes/GAMEAPI/slot_fachai");
 const slotRSGRouter = require("./routes/GAMEAPI/slot_rsg");
 const slotCQ9Router = require("./routes/GAMEAPI/slot_cq9");
 const slotPPRouter = require("./routes/GAMEAPI/slot_livepp");
+const slotDCTGameRouter = require("./routes/GAMEAPI/slot_dctgame");
 
 const liveSAGamingRouter = require("./routes/GAMEAPI/live_sagaming");
 const liveYeebetRouter = require("./routes/GAMEAPI/live_yeebet");
@@ -870,6 +871,7 @@ app.use(slotFachaiRouter);
 app.use(slotRSGRouter);
 app.use(slotCQ9Router);
 app.use(slotPPRouter);
+app.use(slotDCTGameRouter);
 
 app.use(liveSAGamingRouter);
 app.use(liveYeebetRouter);
