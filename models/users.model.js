@@ -324,6 +324,7 @@ const userSchema = new mongoose.Schema(
       pplive: { type: gameLockSchema, default: () => ({}) },
       rsgslot: { type: gameLockSchema, default: () => ({}) },
       rsgfish: { type: gameLockSchema, default: () => ({}) },
+      yggdrasil: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -425,6 +426,9 @@ const userSchema = new mongoose.Schema(
     rsgRegistered: {
       type: Boolean,
       default: false,
+    },
+    yggdrasilGameToken: {
+      type: String,
     },
   },
   {
