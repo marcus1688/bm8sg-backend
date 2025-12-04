@@ -177,6 +177,14 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
         url: `${PUBLIC_APIURL}api/pplive/getturnoverforrebate`,
         name: "PRAGMATIC PLAY LIVE",
       },
+      {
+        url: `${PUBLIC_APIURL}api/rsgslot/getturnoverforrebate`,
+        name: "RSG",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/rsgfish/getturnoverforrebate`,
+        name: "RSG",
+      },
     ];
 
     const routePromises = routes.map((route) =>

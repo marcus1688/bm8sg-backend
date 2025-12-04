@@ -742,7 +742,7 @@ const validateRSGRequest = (SystemCode, WebId) => {
   return SystemCode === rsgSystemCode && WebId === "BM8SG";
 };
 
-router.post("/api/rsgprodmy/GetBalance", async (req, res) => {
+router.post("/api/rsgprodsg/GetBalance", async (req, res) => {
   try {
     const decryptedRequest = decryptDES(req.body.Msg, rsgDesKey, rsgDesIV);
     const { SystemCode, WebId, UserId, Currency } =
@@ -790,7 +790,7 @@ router.post("/api/rsgprodmy/GetBalance", async (req, res) => {
   }
 });
 
-router.post("/api/rsgprodmy/Bet", async (req, res) => {
+router.post("/api/rsgprodsg/Bet", async (req, res) => {
   try {
     const decryptedRequest = decryptDES(req.body.Msg, rsgDesKey, rsgDesIV);
     const { SystemCode, WebId, UserId, TransactionID, SequenNumber, Amount } =
@@ -891,7 +891,7 @@ router.post("/api/rsgprodmy/Bet", async (req, res) => {
   }
 });
 
-router.post("/api/rsgprodmy/BetResult", async (req, res) => {
+router.post("/api/rsgprodsg/BetResult", async (req, res) => {
   try {
     const decryptedRequest = decryptDES(req.body.Msg, rsgDesKey, rsgDesIV);
     const {
@@ -985,7 +985,7 @@ router.post("/api/rsgprodmy/BetResult", async (req, res) => {
   }
 });
 
-router.post("/api/rsgprodmy/JackpotResult", async (req, res) => {
+router.post("/api/rsgprodsg/JackpotResult", async (req, res) => {
   try {
     const decryptedRequest = decryptDES(req.body.Msg, rsgDesKey, rsgDesIV);
     const {
@@ -1070,7 +1070,7 @@ router.post("/api/rsgprodmy/JackpotResult", async (req, res) => {
   }
 });
 
-router.post("/api/rsgprodmy/CancelBet", async (req, res) => {
+router.post("/api/rsgprodsg/CancelBet", async (req, res) => {
   try {
     const decryptedRequest = decryptDES(req.body.Msg, rsgDesKey, rsgDesIV);
     const {
@@ -1160,7 +1160,7 @@ router.post("/api/rsgprodmy/CancelBet", async (req, res) => {
   }
 });
 
-router.post("/api/rsgprodmy/Prepay", async (req, res) => {
+router.post("/api/rsgprodsg/Prepay", async (req, res) => {
   try {
     const decryptedRequest = decryptDES(req.body.Msg, rsgDesKey, rsgDesIV);
     const { SystemCode, WebId, UserId, TransactionId, Amount, SessionId } =
@@ -1256,7 +1256,7 @@ router.post("/api/rsgprodmy/Prepay", async (req, res) => {
   }
 });
 
-router.post("/api/rsgprodmy/Refund", async (req, res) => {
+router.post("/api/rsgprodsg/Refund", async (req, res) => {
   try {
     const decryptedRequest = decryptDES(req.body.Msg, rsgDesKey, rsgDesIV);
     const { SystemCode, WebId, UserId, TransactionId, SessionId, Amount } =
@@ -1342,7 +1342,7 @@ router.post("/api/rsgprodmy/Refund", async (req, res) => {
   }
 });
 
-router.post("/api/rsgprodmy/CheckTransaction", async (req, res) => {
+router.post("/api/rsgprodsg/CheckTransaction", async (req, res) => {
   try {
     const decryptedRequest = decryptDES(req.body.Msg, rsgDesKey, rsgDesIV);
     const { SystemCode, WebId, UserId, GameId, Currency, TransactionId } =

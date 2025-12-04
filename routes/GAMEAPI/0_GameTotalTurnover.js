@@ -30,6 +30,7 @@ const SlotFastSpinModal = require("../../models/slot_fastspin.model");
 const SlotFachaiModal = require("../../models/slot_fachai.model");
 const SlotCQ9Modal = require("../../models/slot_cq9.model");
 const SlotLivePPModal = require("../../models/slot_live_pp.model");
+const SlotRSGModal = require("../../models/slot_rsg.model");
 
 const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
@@ -465,6 +466,21 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
           },
         },
       },
+      rsg: {
+        $match: { cancel: { $ne: true }, settle: true },
+        $group: {
+          _id: null,
+          turnover: { $sum: { $ifNull: ["$betamount", 0] } },
+          winLoss: {
+            $sum: {
+              $subtract: [
+                { $ifNull: ["$settleamount", 0] },
+                { $ifNull: ["$betamount", 0] },
+              ],
+            },
+          },
+        },
+      },
     };
 
     // Create an array of promises for all aggregations to match player-report
@@ -603,6 +619,13 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
         end,
         aggregations.pp
       ),
+      getGameDataSummary(
+        SlotRSGModal,
+        user.gameId,
+        start,
+        end,
+        aggregations.rsg
+      ),
     ]);
 
     // Create a result map from the resolved promises
@@ -682,6 +705,10 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
       pp:
         promiseResults[18].status === "fulfilled"
           ? promiseResults[18].value
+          : { turnover: 0, winLoss: 0 },
+      rsg:
+        promiseResults[19].status === "fulfilled"
+          ? promiseResults[19].value
           : { turnover: 0, winLoss: 0 },
     };
     // Calculate total turnover and win loss
@@ -883,6 +910,15 @@ router.post("/api/games/active-games", authenticateToken, async (req, res) => {
         },
         "Pragmatic Play"
       ),
+      queryModel(
+        SlotRSGModal,
+        {
+          $or: [{ settle: false }, { settle: { $exists: false } }],
+          cancel: { $ne: true },
+          gametype: "SLOT",
+        },
+        "RSG"
+      ),
     ]);
 
     // Process results - much faster since we're only getting 1 game per provider
@@ -1077,6 +1113,15 @@ router.post(
           },
           "Pragmatic Play"
         ),
+        queryModel(
+          SlotRSGModal,
+          {
+            $or: [{ settle: false }, { settle: { $exists: false } }],
+            cancel: { $ne: true },
+            gametype: "SLOT",
+          },
+          "RSG"
+        ),
       ]);
 
       // Process results and combine all active games
@@ -1177,6 +1222,7 @@ router.post(
         Fachai: SlotFachaiModal,
         CQ9: SlotCQ9Modal,
         "Pragmatic Play": SlotLivePPModal,
+        RSG: SlotRSGModal,
       };
 
       const Model = providerModels[gameName];
