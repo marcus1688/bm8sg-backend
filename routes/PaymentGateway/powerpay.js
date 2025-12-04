@@ -432,6 +432,7 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
           ownername: "Payment Gateway",
           transfernumber: orderId,
           walletType: "Main",
+          bankid: pgBankListID,
           transactionType: "deposit",
           method: "auto",
           processBy: "admin",
