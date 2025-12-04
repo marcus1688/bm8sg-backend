@@ -729,44 +729,49 @@ router.post("/admin/api/powerpay/requesttransfer/:userId", async (req, res) => {
     }
 
     const formattedAmount = Number(amount).toFixed(2);
-
     const reqDateTime = moment.utc().format("YYYY-MM-DD HH:mm:ss");
 
-    const receiverData = JSON.stringify({
-      receiverFirstName: accountHolder?.split(" ")[0] || accountHolder,
-      receiverLastName: accountHolder?.split(" ").slice(1).join(" ") || "",
-      receiverNo: accountNumber || "",
-      username: accountHolder,
-      bankCode: bankCode,
-    });
+    const providerId = "10";
+    const providerType = "10";
+
+    const dataObj = {
+      bankName: bankName || bankCode,
+      accNo: accountNumber.toString().trim(),
+      accName: accountHolder.trim(),
+    };
+
+    const data = JSON.stringify(dataObj);
 
     const securityToken = generateSecurityToken([
-      powerpayMerchantCode,
       transactionId,
+      providerId,
+      providerType,
       "SGD",
-      amount.toFixed(2),
-      paymentCallbackUrl,
+      formattedAmount,
       reqDateTime,
-      receiverData,
+      powerpayMerchantCode,
       powerpaySecret,
     ]);
 
+    const requestBody = {
+      orderId: transactionId,
+      providerId: providerId,
+      providerType: providerType,
+      currency: "SGD",
+      amount: formattedAmount,
+      callbackUrl: paymentCallbackUrl,
+      data: data,
+      opCode: powerpayMerchantCode,
+      reqDateTime: reqDateTime,
+      securityToken: securityToken,
+    };
+
     const response = await axios.post(
-      `${powerpayAPIURL}/ajax/api/v2/withdraw`,
-      querystring.stringify({
-        opCode: powerpayMerchantCode,
-        orderId: transactionId,
-        currency: "SGD",
-        amount: amount.toFixed(2),
-        callbackUrl: paymentCallbackUrl,
-        reqDateTime,
-        recipientInfo: receiverData,
-        securityToken,
-      }),
+      `${powerpayAPIURL}/ajax/api/withdraw`,
+      querystring.stringify(requestBody),
       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
     );
-    console.log(response.data);
-    return;
+
     if (response.data.code !== "0") {
       console.log(`POWERPAY API Error: ${response.data}`);
 
@@ -785,14 +790,14 @@ router.post("/admin/api/powerpay/requesttransfer/:userId", async (req, res) => {
     await Promise.all([
       powerpayModal.create({
         ourRefNo: transactionId,
-        paymentGatewayRefNo: response.data.data.vendor_id,
-        transfername: "N/A",
+        paymentGatewayRefNo: response.data.refId,
+        transfername: accountHolder || "",
         username: user.username,
-        amount: Number(formattedAmount),
+        amount: formattedAmount,
         transferType: bankName || bankCode,
         transactiontype: "withdraw",
         status: "Pending",
-        platformCharge: 0,
+        platformCharge: response.data.adminFee || 0,
         remark: "-",
         promotionId: null,
       }),
@@ -810,7 +815,7 @@ router.post("/admin/api/powerpay/requesttransfer/:userId", async (req, res) => {
     });
   } catch (error) {
     console.error(
-      `Error in SKL99 API - User: ${req.user?.userId}, Amount: ${req.body?.amount}:`,
+      `Error in POWERPAY API - User: ${req.user?.userId}, Amount: ${req.body?.amount}:`,
       error.response?.data || error.message
     );
 
