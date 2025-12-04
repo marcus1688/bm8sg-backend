@@ -775,10 +775,10 @@ router.post("/api/hacksaw/launchGame", authenticateToken, async (req, res) => {
       brand_uid: user.gameId,
       token: logintoken,
       game_id: parseInt(gameCode),
-      currency: "MYR",
+      currency: "SGD",
       language: lang,
       channel: platform,
-      country_code: "MY",
+      country_code: "SG",
       return_url: webURL,
     };
 
@@ -918,10 +918,10 @@ router.post(
         brand_uid: user.gameId,
         token: logintoken,
         game_id: parseInt(gameCode),
-        currency: "MYR",
+        currency: "SGD",
         language: lang,
         channel: platform,
-        country_code: "MY",
+        country_code: "SG",
         return_url: webURL,
       };
 
@@ -1034,7 +1034,7 @@ router.post("/api/dctgamestag/login", async (req, res) => {
       msg: "Success",
       data: {
         brand_uid: brand_uid,
-        currency: "MYR",
+        currency: "SGD",
         balance: roundToTwoDecimals(validation.user.wallet),
       },
     });
@@ -1088,7 +1088,7 @@ router.post("/api/dctgamestag/getBalance", async (req, res) => {
       msg: "Success",
       data: {
         brand_uid: brand_uid,
-        currency: "MYR",
+        currency: "SGD",
         balance: roundToTwoDecimals(validation.user.wallet),
       },
     });
