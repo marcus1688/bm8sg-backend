@@ -185,6 +185,10 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
         url: `${PUBLIC_APIURL}api/rsgfish/getturnoverforrebate`,
         name: "RSG",
       },
+      {
+        url: `${PUBLIC_APIURL}api/ibex/getturnoverforrebate`,
+        name: "IBEX",
+      },
     ];
 
     const routePromises = routes.map((route) =>

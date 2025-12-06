@@ -33,6 +33,7 @@ const GameRSGGameModal = require("../../models/slot_rsgDatabase.model");
 const GameCq9GameModal = require("../../models/slot_cq9Database.model");
 const GamePPGameModal = require("../../models/slot_live_ppDatabase.model");
 const GameYGGDrasilGameModal = require("../../models/slot_dctyggdrasilDatabase.model");
+const GameIBexGameModal = require("../../models/slot_ibexDatabase.model");
 
 const { S3Client, ListObjectsV2Command } = require("@aws-sdk/client-s3");
 const multer = require("multer");
@@ -79,7 +80,7 @@ function parseRTP(rtpRaw) {
 
 router.post("/api/playtech/import-games", async (req, res) => {
   try {
-    const importFilePath = path.join(__dirname, "../../public/yggdrasil.json");
+    const importFilePath = path.join(__dirname, "../../public/ibex.json");
     console.log(importFilePath);
 
     // Check if file exists
@@ -105,9 +106,9 @@ router.post("/api/playtech/import-games", async (req, res) => {
 
     console.log("pass");
     console.log(`Found ${gameList.length} games to import`);
-    await GameYGGDrasilGameModal.deleteMany();
+    await GameIBexGameModal.deleteMany();
     // Insert into MongoDB
-    await GameYGGDrasilGameModal.insertMany(gameList);
+    await GameIBexGameModal.insertMany(gameList);
 
     return res.status(200).json({
       success: true,

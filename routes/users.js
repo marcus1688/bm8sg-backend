@@ -55,6 +55,7 @@ const SlotFachaiModal = require("../models/slot_fachai.model");
 const SlotCQ9Modal = require("../models/slot_cq9.model");
 const SlotLivePPModal = require("../models/slot_live_pp.model");
 const SlotRSGModal = require("../models/slot_rsg.model");
+const SlotIBEXModal = require("../models/slot_ibex.model");
 
 const EsportTfGamingModal = require("../models/esport_tfgaming.model");
 
@@ -6239,6 +6240,11 @@ router.get(
           }),
 
           getAllUsersTurnover(SlotRSGModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          getAllUsersTurnover(SlotIBEXModal, {
             cancel: { $ne: true },
             settle: true,
           }),

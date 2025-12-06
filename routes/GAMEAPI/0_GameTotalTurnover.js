@@ -31,6 +31,7 @@ const SlotFachaiModal = require("../../models/slot_fachai.model");
 const SlotCQ9Modal = require("../../models/slot_cq9.model");
 const SlotLivePPModal = require("../../models/slot_live_pp.model");
 const SlotRSGModal = require("../../models/slot_rsg.model");
+const SlotIBEXModal = require("../../models/slot_ibex.model");
 
 const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
@@ -481,6 +482,24 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
           },
         },
       },
+      ibex: {
+        $match: {
+          cancel: { $ne: true },
+          settle: true,
+        },
+        $group: {
+          _id: null,
+          turnover: { $sum: { $ifNull: ["$betamount", 0] } },
+          winLoss: {
+            $sum: {
+              $subtract: [
+                { $ifNull: ["$settleamount", 0] },
+                { $ifNull: ["$betamount", 0] },
+              ],
+            },
+          },
+        },
+      },
     };
 
     // Create an array of promises for all aggregations to match player-report
@@ -626,6 +645,13 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
         end,
         aggregations.rsg
       ),
+      getGameDataSummary(
+        SlotIBEXModal,
+        user.gameId,
+        start,
+        end,
+        aggregations.ibex
+      ),
     ]);
 
     // Create a result map from the resolved promises
@@ -709,6 +735,10 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
       rsg:
         promiseResults[19].status === "fulfilled"
           ? promiseResults[19].value
+          : { turnover: 0, winLoss: 0 },
+      ibex:
+        promiseResults[20].status === "fulfilled"
+          ? promiseResults[20].value
           : { turnover: 0, winLoss: 0 },
     };
     // Calculate total turnover and win loss
@@ -919,6 +949,14 @@ router.post("/api/games/active-games", authenticateToken, async (req, res) => {
         },
         "RSG"
       ),
+      queryModel(
+        SlotIBEXModal,
+        {
+          $or: [{ settle: false }, { settle: { $exists: false } }],
+          cancel: { $ne: true },
+        },
+        "IBEX"
+      ),
     ]);
 
     // Process results - much faster since we're only getting 1 game per provider
@@ -1122,6 +1160,14 @@ router.post(
           },
           "RSG"
         ),
+        queryModel(
+          SlotIBEXModal,
+          {
+            $or: [{ settle: false }, { settle: { $exists: false } }],
+            cancel: { $ne: true },
+          },
+          "IBEX"
+        ),
       ]);
 
       // Process results and combine all active games
@@ -1223,6 +1269,7 @@ router.post(
         CQ9: SlotCQ9Modal,
         "Pragmatic Play": SlotLivePPModal,
         RSG: SlotRSGModal,
+        IBEX: SlotIBEXModal,
       };
 
       const Model = providerModels[gameName];
@@ -1284,6 +1331,7 @@ router.post(
           case "PlayStar":
           case "Fastspin":
           case "Fachai":
+          case "IBEX":
           default:
             isAlreadySettled = gameRecord.settle === true;
             isAlreadyCanceled = gameRecord.cancel === true;
