@@ -24,6 +24,29 @@ const kioskbalance = require("../../models/kioskbalance.model");
 const GameWalletLog = require("../../models/gamewalletlog.model");
 const { updateUserGameLocks } = require("../users");
 
+const SlotEpicWinModal = require("../../models/slot_epicwin.model");
+const SlotBTGamingModal = require("../../models/slot_btgaming.model");
+const SlotAceWinModal = require("../../models/slot_acewin.model");
+const SlotYGRModal = require("../../models/slot_yesgetrich.model");
+const SlotVPowerModal = require("../../models/slot_vpower.model");
+const EsportTfGamingModal = require("../../models/esport_tfgaming.model");
+const SlotBNGModal = require("../../models/slot_bng.model");
+const LiveSaGamingModal = require("../../models/live_sagaming.model");
+const LiveYeebetModal = require("../../models/live_yeebet.model");
+const SportM9BetModal = require("../../models/sport_m9bet.model");
+const LiveWeCasinoModal = require("../../models/live_wecasino.model");
+const SlotSpadeGamingModal = require("../../models/slot_spadegaming.model");
+const SlotNextSpinModal = require("../../models/slot_nextspin.model");
+const LiveWMCasinoRebateModal = require("../../models/live_wmcasinorebate.model");
+const SlotPlayStarModal = require("../../models/slot_playstar.model");
+const SlotFastSpinModal = require("../../models/slot_fastspin.model");
+const SlotFachaiModal = require("../../models/slot_fachai.model");
+const SlotCQ9Modal = require("../../models/slot_cq9.model");
+const SlotLivePPModal = require("../../models/slot_live_pp.model");
+const SlotRSGModal = require("../../models/slot_rsg.model");
+const SlotIBEXModal = require("../../models/slot_ibex.model");
+const SlotDCTGameModal = require("../../models/slot_dctgame.model");
+
 require("dotenv").config();
 
 function roundToTwoDecimals(num) {
