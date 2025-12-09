@@ -22,7 +22,7 @@ require("dotenv").config();
 const dctGameBrandID = "S010218";
 const dctGameKey = process.env.DCTGAME_SECRET;
 const webURL = "https://www.bm8sg.vip/";
-const dctGameAPIURL = "https://gaming.stagedc.net";
+const dctGameAPIURL = "https://gaming.dcgames.asia";
 
 const generateRandomCode = () => {
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
