@@ -995,7 +995,7 @@ router.post(
   }
 );
 
-router.post("/api/dctgamestag/login", async (req, res) => {
+router.post("/api/dctgameprodsg/login", async (req, res) => {
   try {
     const { brand_id, sign, token, brand_uid } = req.body;
     if (!token || !sign || !brand_uid || !brand_id) {
@@ -1050,7 +1050,7 @@ router.post("/api/dctgamestag/login", async (req, res) => {
   }
 });
 
-router.post("/api/dctgamestag/getBalance", async (req, res) => {
+router.post("/api/dctgameprodsg/getBalance", async (req, res) => {
   try {
     const { brand_id, sign, token, brand_uid } = req.body;
 
@@ -1104,7 +1104,7 @@ router.post("/api/dctgamestag/getBalance", async (req, res) => {
   }
 });
 
-router.post("/api/dctgamestag/wager", async (req, res) => {
+router.post("/api/dctgameprodsg/wager", async (req, res) => {
   try {
     const {
       brand_id,
@@ -1240,7 +1240,7 @@ router.post("/api/dctgamestag/wager", async (req, res) => {
   }
 });
 
-router.post("/api/dctgamestag/cancelWager", async (req, res) => {
+router.post("/api/dctgameprodsg/cancelWager", async (req, res) => {
   try {
     const { brand_id, sign, brand_uid, round_id, wager_id, currency } =
       req.body;
@@ -1338,7 +1338,7 @@ router.post("/api/dctgamestag/cancelWager", async (req, res) => {
   }
 });
 
-router.post("/api/dctgamestag/appendWager", async (req, res) => {
+router.post("/api/dctgameprodsg/appendWager", async (req, res) => {
   try {
     const { brand_id, sign, brand_uid, round_id, amount, wager_id, currency } =
       req.body;
@@ -1427,7 +1427,7 @@ router.post("/api/dctgamestag/appendWager", async (req, res) => {
   }
 });
 
-router.post("/api/dctgamestag/endWager", async (req, res) => {
+router.post("/api/dctgameprodsg/endWager", async (req, res) => {
   try {
     const { brand_id, sign, brand_uid, round_id, amount, wager_id, currency } =
       req.body;
@@ -1531,7 +1531,7 @@ router.post("/api/dctgamestag/endWager", async (req, res) => {
   }
 });
 
-router.post("/api/dctgamestag/freeSpinResult", async (req, res) => {
+router.post("/api/dctgameprodsg/freeSpinResult", async (req, res) => {
   try {
     const {
       brand_id,
@@ -1645,7 +1645,7 @@ router.post("/api/dctgamestag/freeSpinResult", async (req, res) => {
   }
 });
 
-router.post("/api/dctgamestag/promoPayout", async (req, res) => {
+router.post("/api/dctgameprodsg/promoPayout", async (req, res) => {
   try {
     const {
       brand_id,
