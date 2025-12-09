@@ -326,6 +326,8 @@ const userSchema = new mongoose.Schema(
       rsgfish: { type: gameLockSchema, default: () => ({}) },
       yggdrasil: { type: gameLockSchema, default: () => ({}) },
       ibex: { type: gameLockSchema, default: () => ({}) },
+      hacksaw: { type: gameLockSchema, default: () => ({}) },
+      relaxgaming: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -432,6 +434,12 @@ const userSchema = new mongoose.Schema(
       type: String,
     },
     ibexGameToken: {
+      type: String,
+    },
+    hacksawGameToken: {
+      type: String,
+    },
+    relaxgamingGameToken: {
       type: String,
     },
   },
