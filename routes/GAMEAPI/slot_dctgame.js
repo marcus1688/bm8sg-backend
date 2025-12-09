@@ -437,7 +437,7 @@ router.post("/api/dct/comparegame", async (req, res) => {
     const payload = {
       brand_id: dctGameBrandID,
       sign,
-      provider: "relax",
+      provider: "hs",
     };
 
     const response = await axios.post(
@@ -451,7 +451,7 @@ router.post("/api/dct/comparegame", async (req, res) => {
     );
 
     // Get all games from database
-    const dbGames = await GameRelaxGamingGameModal.find({}).lean();
+    const dbGames = await GameHacksawGameModal.find({}).lean();
 
     // Extract game IDs from API response
     const apiGameIds = new Set(
@@ -482,7 +482,7 @@ router.post("/api/dct/comparegame", async (req, res) => {
     // Update extra games to maintenance mode
     let extraGamesUpdated = 0;
     if (extraGameIds.length > 0) {
-      const extraResult = await GameRelaxGamingGameModal.updateMany(
+      const extraResult = await GameHacksawGameModal.updateMany(
         { _id: { $in: extraGameIds } },
         { $set: { maintenance: true } }
       );
@@ -493,7 +493,7 @@ router.post("/api/dct/comparegame", async (req, res) => {
     // Update active games to set maintenance to false
     let activeGamesUpdated = 0;
     if (activeGameIds.length > 0) {
-      const activeResult = await GameRelaxGamingGameModal.updateMany(
+      const activeResult = await GameHacksawGameModal.updateMany(
         { _id: { $in: activeGameIds } },
         { $set: { maintenance: false } }
       );

@@ -56,6 +56,7 @@ const SlotCQ9Modal = require("../models/slot_cq9.model");
 const SlotLivePPModal = require("../models/slot_live_pp.model");
 const SlotRSGModal = require("../models/slot_rsg.model");
 const SlotIBEXModal = require("../models/slot_ibex.model");
+const SlotDCTGameModal = require("../models/slot_dctgame.model");
 
 const EsportTfGamingModal = require("../models/esport_tfgaming.model");
 
@@ -6259,6 +6260,11 @@ router.get(
           }),
 
           getAllUsersTurnover(SlotIBEXModal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
+
+          getAllUsersTurnover(SlotDCTGameModal, {
             cancel: { $ne: true },
             settle: true,
           }),
