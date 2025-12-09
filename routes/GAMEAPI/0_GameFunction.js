@@ -874,7 +874,7 @@ router.post("/api/rebatemanualclaim", authenticateToken, async (req, res) => {
         )
         .lean(),
       vip.findOne({}).lean(),
-      Promotion.findById("YOUR_PROMOTION_ID_HERE") // ⚠️ Update this
+      Promotion.findById("6929c17d4d6d42211caf19a2")
         .select("_id maintitle maintitleEN")
         .lean(),
       kioskbalance.findOne({}).lean(),
