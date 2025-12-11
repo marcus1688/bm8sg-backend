@@ -33,6 +33,7 @@ const SlotLivePPModal = require("../../models/slot_live_pp.model");
 const SlotRSGModal = require("../../models/slot_rsg.model");
 const SlotIBEXModal = require("../../models/slot_ibex.model");
 const SlotDCTGameModal = require("../../models/slot_dctgame.model");
+const LiveOnCasinoModal = require("../../models/live_oncasino.model");
 
 const { v4: uuidv4 } = require("uuid");
 const querystring = require("querystring");
@@ -525,6 +526,28 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
           },
         },
       },
+      oncasino: {
+        $match: {
+          cancel: { $ne: true },
+          settle: true,
+        },
+        $group: {
+          _id: null,
+          turnover: {
+            $sum: {
+              $ifNull: [{ $ifNull: ["$validbetamount", "$betamount"] }, 0],
+            },
+          },
+          winLoss: {
+            $sum: {
+              $subtract: [
+                { $ifNull: ["$settleamount", 0] },
+                { $ifNull: ["$betamount", 0] },
+              ],
+            },
+          },
+        },
+      },
     };
 
     // Create an array of promises for all aggregations to match player-report
@@ -684,6 +707,13 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
         end,
         aggregations.dctgames
       ),
+      getGameDataSummary(
+        LiveOnCasinoModal,
+        user.gameId,
+        start,
+        end,
+        aggregations.oncasino
+      ),
     ]);
 
     // Create a result map from the resolved promises
@@ -775,6 +805,10 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
       dctgames:
         promiseResults[21].status === "fulfilled"
           ? promiseResults[21].value
+          : { turnover: 0, winLoss: 0 },
+      oncasino:
+        promiseResults[22].status === "fulfilled"
+          ? promiseResults[22].value
           : { turnover: 0, winLoss: 0 },
     };
     // Calculate total turnover and win loss

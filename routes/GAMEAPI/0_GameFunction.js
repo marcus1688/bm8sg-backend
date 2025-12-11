@@ -46,6 +46,7 @@ const SlotLivePPModal = require("../../models/slot_live_pp.model");
 const SlotRSGModal = require("../../models/slot_rsg.model");
 const SlotIBEXModal = require("../../models/slot_ibex.model");
 const SlotDCTGameModal = require("../../models/slot_dctgame.model");
+const LiveOnCasinoModal = require("../../models/live_oncasino.model");
 
 require("dotenv").config();
 
@@ -228,6 +229,10 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
       {
         url: `${PUBLIC_APIURL}api/relaxgaming/getturnoverforrebate`,
         name: "RELAX GAMING",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/oncasino/getturnoverforrebate`,
+        name: "ONCASINO",
       },
     ];
 
@@ -417,6 +422,13 @@ const GAME_CONFIG = [
   {
     model: LiveSaGamingModal,
     name: "sagaming",
+    category: CATEGORIES.LIVE_CASINO,
+    match: { cancel: { $ne: true }, settle: true },
+    useValidBet: true,
+  },
+  {
+    model: LiveOnCasinoModal,
+    name: "oncasino",
     category: CATEGORIES.LIVE_CASINO,
     match: { cancel: { $ne: true }, settle: true },
     useValidBet: true,
