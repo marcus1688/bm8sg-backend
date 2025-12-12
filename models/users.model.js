@@ -329,6 +329,7 @@ const userSchema = new mongoose.Schema(
       hacksaw: { type: gameLockSchema, default: () => ({}) },
       relaxgaming: { type: gameLockSchema, default: () => ({}) },
       oncasino: { type: gameLockSchema, default: () => ({}) },
+      cmd368: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -444,6 +445,9 @@ const userSchema = new mongoose.Schema(
       type: String,
     },
     oncasinoGameToken: {
+      type: String,
+    },
+    cmd368GameToken: {
       type: String,
     },
   },
