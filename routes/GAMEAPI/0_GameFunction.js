@@ -47,6 +47,7 @@ const SlotRSGModal = require("../../models/slot_rsg.model");
 const SlotIBEXModal = require("../../models/slot_ibex.model");
 const SlotDCTGameModal = require("../../models/slot_dctgame.model");
 const LiveOnCasinoModal = require("../../models/live_oncasino.model");
+const SportsCMD368UnlimitedModal = require("../../models/sport_cmdunlimited.model");
 
 require("dotenv").config();
 
@@ -233,6 +234,10 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
       {
         url: `${PUBLIC_APIURL}api/oncasino/getturnoverforrebate`,
         name: "ONCASINO",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/cmd368/getturnoverforrebate`,
+        name: "CMD368",
       },
     ];
 
@@ -465,6 +470,12 @@ const GAME_CONFIG = [
     name: "m9bet",
     category: CATEGORIES.SPORTS,
     match: { cancel: { $ne: true }, settle: true },
+  },
+  {
+    model: SportsCMD368UnlimitedModal,
+    name: "cmd368",
+    category: CATEGORIES.SPORTS,
+    match: { iscashout: { $ne: true } },
   },
 
   // ========== ESPORTS ==========

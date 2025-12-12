@@ -165,8 +165,7 @@ async function processCMD368Bets() {
       (bet) =>
         bet.WinLoseStatus !== "P" &&
         bet.DangerStatus !== "C" &&
-        bet.DangerStatus !== "R" &&
-        bet.IsCashOut !== true
+        bet.DangerStatus !== "R"
     );
 
     // Prepare bulk operations
@@ -181,6 +180,7 @@ async function processCMD368Bets() {
             winlossamount: parseFloat(bet.WinAmount),
             status: bet.WinLoseStatus,
             result: bet.DangerStatus,
+            iscashout: bet.IsCashOut === true,
           },
           $setOnInsert: {
             claimed: false,
@@ -212,7 +212,6 @@ async function processCMD368Bets() {
     return { success: false, error: error.message };
   }
 }
-
 module.exports = {
   processCMD368Bets,
 };
