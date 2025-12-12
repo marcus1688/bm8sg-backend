@@ -290,6 +290,14 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    additionalTurnover: {
+      type: Number,
+      default: 0,
+    },
+    additionalTurnoverAddedAt: {
+      type: Date,
+      default: null,
+    },
     adminMagicToken: String,
     adminMagicTokenExpires: Date,
     adminMagicTokenUsed: { type: Boolean, default: false },
