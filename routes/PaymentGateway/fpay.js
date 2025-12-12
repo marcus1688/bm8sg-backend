@@ -1316,7 +1316,7 @@ router.post("/admin/api/fpay/requesttransfer/:userId", async (req, res) => {
   }
 });
 
-router.post("/api/fpaymypayout", async (req, res) => {
+router.post("/api/fpaysgpayout", async (req, res) => {
   try {
     const { order_id, amount, order_status, charge, type } = req.body;
 
