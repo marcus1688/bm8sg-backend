@@ -5,6 +5,7 @@ const Withdraw = require("../models/withdraw.model");
 const Deposit = require("../models/deposit.model");
 const Bonus = require("../models/bonus.model");
 const UserWalletCashOut = require("../models/userwalletcashout.model");
+const UserWalletCashIn = require("../models/userwalletcashin.model");
 const { authenticateAdminToken } = require("../auth/adminAuth");
 const moment = require("moment");
 
