@@ -341,6 +341,7 @@ const userSchema = new mongoose.Schema(
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
+      pussy888: { type: gameStatusSchema, default: () => ({}) },
       // xe88: { type: gameStatusSchema, default: () => ({}) },
       // kiss918: { type: gameStatusSchema, default: () => ({}) },
     },
@@ -457,6 +458,22 @@ const userSchema = new mongoose.Schema(
     },
     cmd368GameToken: {
       type: String,
+    },
+    pussy888GameID: {
+      type: String,
+      default: null,
+    },
+    pussy888GamePW: {
+      type: String,
+      default: null,
+    },
+    pastPussy888GameID: {
+      type: [String],
+      default: [],
+    },
+    pastPussy888GamePW: {
+      type: [String],
+      default: [],
     },
   },
   {

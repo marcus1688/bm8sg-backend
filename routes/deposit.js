@@ -19,7 +19,7 @@ const { User } = require("../models/users.model");
 const UserWalletLog = require("../models/userwalletlog.model");
 const Promotion = require("../models/promotion.model");
 const moment = require("moment");
-
+const { pussy888CheckBalance } = require("./GAMEAPI/slot_pussy888");
 const Withdraw = require("../models/withdraw.model");
 
 require("dotenv").config();
@@ -45,6 +45,38 @@ async function uploadFileToS3(file) {
   return `https://${process.env.S3_MAINBUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
 }
 
+async function getTotalGameBalance(user) {
+  const GAME_CHECKERS = [{ name: "PUSSY888", checker: pussy888CheckBalance }];
+
+  const results = await Promise.all(
+    GAME_CHECKERS.map(({ name, checker }) =>
+      checker(user)
+        .then((result) => ({ name, success: true, ...result }))
+        .catch((error) => ({
+          name,
+          success: false,
+          error: error.message || "Connection failed",
+          balance: 0,
+        }))
+    )
+  );
+
+  const errors = {};
+  const totalBalance = results.reduce((total, result) => {
+    if (result.success && result.balance != null) {
+      return total + (Number(result.balance) || 0);
+    }
+
+    console.error(`${result.name} balance check error:`, result);
+    errors[result.name.toLowerCase()] = {
+      error: result.error || "Failed to fetch balance",
+    };
+    return total;
+  }, 0);
+
+  return { totalBalance, errors };
+}
+
 async function submitLuckySpin(
   userId,
   depositId,
@@ -68,7 +100,12 @@ async function submitLuckySpin(
     const bonusAmount = user.luckySpinAmount;
     const transactionId = uuidv4();
 
-    let totalGameBalance = 0;
+    const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
+      await getTotalGameBalance(user);
+
+    if (Object.keys(balanceFetchErrors).length > 0) {
+      console.log("Some game balance checks failed:", balanceFetchErrors);
+    }
 
     const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
     const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
@@ -214,7 +251,12 @@ router.post(
 
       const [imageUrl] = await Promise.all([uploadFileToS3(req.file)]);
 
-      const balanceFetchErrors = {};
+      const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
+        await getTotalGameBalance(user);
+
+      if (Object.keys(balanceFetchErrors).length > 0) {
+        console.log("Some game balance checks failed:", balanceFetchErrors);
+      }
 
       const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
 
@@ -359,7 +401,12 @@ router.post("/admin/api/deposit", authenticateAdminToken, async (req, res) => {
     }
     const transactionId = uuidv4();
 
-    let totalGameBalance = 0;
+    const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
+      await getTotalGameBalance(user);
+
+    if (Object.keys(balanceFetchErrors).length > 0) {
+      console.log("Some game balance checks failed:", balanceFetchErrors);
+    }
 
     const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
     const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);

@@ -13,8 +13,40 @@ const moment = require("moment");
 const Deposit = require("../models/deposit.model");
 const Bonus = require("../models/bonus.model");
 const promotion = require("../models/promotion.model");
-
+const { pussy888CheckBalance } = require("./GAMEAPI/slot_pussy888");
 const axios = require("axios");
+
+async function getTotalGameBalance(user) {
+  const GAME_CHECKERS = [{ name: "PUSSY888", checker: pussy888CheckBalance }];
+
+  const results = await Promise.all(
+    GAME_CHECKERS.map(({ name, checker }) =>
+      checker(user)
+        .then((result) => ({ name, success: true, ...result }))
+        .catch((error) => ({
+          name,
+          success: false,
+          error: error.message || "Connection failed",
+          balance: 0,
+        }))
+    )
+  );
+
+  const errors = {};
+  const totalBalance = results.reduce((total, result) => {
+    if (result.success && result.balance != null) {
+      return total + (Number(result.balance) || 0);
+    }
+
+    console.error(`${result.name} balance check error:`, result);
+    errors[result.name.toLowerCase()] = {
+      error: result.error || "Failed to fetch balance",
+    };
+    return total;
+  }, 0);
+
+  return { totalBalance, errors };
+}
 
 // Check Turnover Requirement
 // const checkTurnoverRequirements = async (userId) => {
@@ -914,7 +946,12 @@ router.post("/api/withdraw", authenticateToken, async (req, res) => {
     }
     const transactionId = uuidv4();
 
-    let totalGameBalance = 0;
+    const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
+      await getTotalGameBalance(user);
+
+    if (Object.keys(balanceFetchErrors).length > 0) {
+      console.log("Some game balance checks failed:", balanceFetchErrors);
+    }
 
     const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
 
@@ -1102,7 +1139,12 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
       console.error("Error checking last deposit name:", error);
     }
 
-    let totalGameBalance = 0;
+    const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
+      await getTotalGameBalance(user);
+
+    if (Object.keys(balanceFetchErrors).length > 0) {
+      console.log("Some game balance checks failed:", balanceFetchErrors);
+    }
 
     const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
 

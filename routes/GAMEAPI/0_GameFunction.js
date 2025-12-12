@@ -48,6 +48,7 @@ const SlotIBEXModal = require("../../models/slot_ibex.model");
 const SlotDCTGameModal = require("../../models/slot_dctgame.model");
 const LiveOnCasinoModal = require("../../models/live_oncasino.model");
 const SportsCMD368UnlimitedModal = require("../../models/sport_cmdunlimited.model");
+const slotPussy888Modal = require("../../models/slot_pussy888.model");
 
 require("dotenv").config();
 
@@ -239,6 +240,10 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
         url: `${PUBLIC_APIURL}api/cmd368/getturnoverforrebate`,
         name: "CMD368",
       },
+      {
+        url: `${PUBLIC_APIURL}api/pussy888/getturnoverforrebate`,
+        name: "PUSSY888",
+      },
     ];
 
     const routePromises = routes.map((route) =>
@@ -421,6 +426,12 @@ const GAME_CONFIG = [
     name: "dctgames",
     category: CATEGORIES.SLOT,
     match: { cancel: { $ne: true }, settle: true },
+  },
+  {
+    model: slotPussy888Modal,
+    name: "pussy888",
+    category: CATEGORIES.SLOT,
+    match: {},
   },
 
   // ========== LIVE CASINO ==========

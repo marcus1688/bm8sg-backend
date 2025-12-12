@@ -11,7 +11,7 @@ const UserWalletLog = require("../models/userwalletlog.model");
 const Promotion = require("../models/promotion.model");
 const vip = require("../models/vip.model");
 const { checkSportPendingMatch } = require("../helpers/turnoverHelper");
-
+const { pussy888CheckBalance } = require("./GAMEAPI/slot_pussy888");
 //this need change useing createdAt time
 const calculateCountdown = (createdAt) => {
   // //   const now = moment.utc().add(8, "hours"); // GMT+8 timezone
@@ -38,6 +38,38 @@ const calculateWeeklyCountdown = (createdAt) => {
 
   return nextMonday.toDate();
 };
+
+async function getTotalGameBalance(user) {
+  const GAME_CHECKERS = [{ name: "PUSSY888", checker: pussy888CheckBalance }];
+
+  const results = await Promise.all(
+    GAME_CHECKERS.map(({ name, checker }) =>
+      checker(user)
+        .then((result) => ({ name, success: true, ...result }))
+        .catch((error) => ({
+          name,
+          success: false,
+          error: error.message || "Connection failed",
+          balance: 0,
+        }))
+    )
+  );
+
+  const errors = {};
+  const totalBalance = results.reduce((total, result) => {
+    if (result.success && result.balance != null) {
+      return total + (Number(result.balance) || 0);
+    }
+
+    console.error(`${result.name} balance check error:`, result);
+    errors[result.name.toLowerCase()] = {
+      error: result.error || "Failed to fetch balance",
+    };
+    return total;
+  }, 0);
+
+  return { totalBalance, errors };
+}
 
 // Customer Submit Bonus
 router.post(
@@ -132,7 +164,12 @@ router.post(
 
       const transactionId = uuidv4();
 
-      let totalGameBalance = 0;
+      const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
+        await getTotalGameBalance(user);
+
+      if (Object.keys(balanceFetchErrors).length > 0) {
+        console.log("Some game balance checks failed:", balanceFetchErrors);
+      }
 
       const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
       const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
@@ -262,7 +299,12 @@ router.post(
       }
       const transactionId = uuidv4();
 
-      let totalGameBalance = 0;
+      const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
+        await getTotalGameBalance(user);
+
+      if (Object.keys(balanceFetchErrors).length > 0) {
+        console.log("Some game balance checks failed:", balanceFetchErrors);
+      }
 
       const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
       const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
