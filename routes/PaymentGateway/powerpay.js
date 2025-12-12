@@ -30,6 +30,7 @@ const { updateKioskBalance } = require("../../services/kioskBalanceService");
 const BankTransactionLog = require("../../models/banktransactionlog.model");
 const BankList = require("../../models/banklist.model");
 const LiveTransaction = require("../../models/transaction.model");
+const { checkSportPendingMatch } = require("../../helpers/turnoverHelper");
 
 require("dotenv").config();
 
@@ -354,6 +355,7 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
             fullname: 1,
             wallet: 1,
             totaldeposit: 1,
+            gameId: 1,
             firstDepositDate: 1,
             duplicateIP: 1,
             duplicateBank: 1,
@@ -394,6 +396,9 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
           description: "Bank not found",
         });
       }
+
+      const hasSportPendingMatch = await checkSportPendingMatch(user.gameId);
+      const isNewCycle = !hasSportPendingMatch && user.wallet <= 5;
 
       const isNewDeposit = !user.firstDepositDate;
       const oldGatewayBalance = gateway?.balance || 0;
@@ -445,6 +450,7 @@ router.post("/api/powerpay/receivedcalled168", async (req, res) => {
           transactionId: cleanOrderId,
           duplicateIP: user.duplicateIP,
           duplicateBank: user.duplicateBank,
+          isNewCycle: isNewCycle,
         }),
 
         powerpayModal.findByIdAndUpdate(existingTrx._id, {
