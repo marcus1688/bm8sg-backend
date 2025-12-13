@@ -37,7 +37,7 @@ function getNextRunTime(hour, minute) {
   return nextRun.format("YYYY-MM-DD HH:mm:ss");
 }
 
-// 每天3点Rebate
+// 每天3 点Rebate
 if (process.env.NODE_ENV !== "development") {
   cron.schedule(
     "0 3 * * *",
