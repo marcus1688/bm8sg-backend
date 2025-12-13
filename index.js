@@ -87,6 +87,7 @@ const slotDCTGameRouter = require("./routes/GAMEAPI/slot_dctgame");
 const slotYGGDrasilRouter = require("./routes/GAMEAPI/slot_yggdrasil");
 const slotIBEXRouter = require("./routes/GAMEAPI/slot_ibex");
 const slotPussy888Router = require("./routes/GAMEAPI/slot_pussy888");
+const slotExpansestudioRouter = require("./routes/GAMEAPI/slot_expansestudios");
 
 const liveSAGamingRouter = require("./routes/GAMEAPI/live_sagaming");
 const liveYeebetRouter = require("./routes/GAMEAPI/live_yeebet");
@@ -883,6 +884,7 @@ app.use(slotDCTGameRouter);
 app.use(slotYGGDrasilRouter);
 app.use(slotIBEXRouter);
 app.use(slotPussy888Router);
+app.use(slotExpansestudioRouter);
 
 app.use(liveSAGamingRouter);
 app.use(liveYeebetRouter);
