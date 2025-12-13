@@ -338,6 +338,7 @@ const userSchema = new mongoose.Schema(
       relaxgaming: { type: gameLockSchema, default: () => ({}) },
       oncasino: { type: gameLockSchema, default: () => ({}) },
       cmd368: { type: gameLockSchema, default: () => ({}) },
+      expansesstudio: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -474,6 +475,9 @@ const userSchema = new mongoose.Schema(
     pastPussy888GamePW: {
       type: [String],
       default: [],
+    },
+    expansesStudioGameToken: {
+      type: String,
     },
   },
   {
