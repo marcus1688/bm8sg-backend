@@ -1041,6 +1041,8 @@ router.post("/api/withdraw", authenticateToken, async (req, res) => {
 
 // Admin Submit Withdraw
 router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
+  let session = null;
+
   try {
     const adminId = req.user.userId;
     const adminuser = await adminUser.findById(adminId);
@@ -1053,6 +1055,7 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         },
       });
     }
+
     const { userid, username, bankid, amount } = req.body;
     if (!userid || !username || !bankid || !amount) {
       return res.status(200).json({
@@ -1063,6 +1066,7 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         },
       });
     }
+
     if (!amount || amount <= 0) {
       return res.status(200).json({
         success: false,
@@ -1072,6 +1076,7 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         },
       });
     }
+
     const generalSettings = await general.findOne();
     const minWithdraw = generalSettings?.minWithdraw || 50;
     const maxWithdraw = generalSettings?.maxWithdraw || 0;
@@ -1106,6 +1111,7 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         },
       });
     }
+
     if (user.withdrawlock) {
       return res.status(200).json({
         success: false,
@@ -1115,6 +1121,7 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         },
       });
     }
+
     if (amount > user.wallet) {
       return res.status(200).json({
         success: false,
@@ -1124,6 +1131,7 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         },
       });
     }
+
     const existingPendingWithdrawal = await Withdraw.findOne({
       userId: userid,
       status: "pending",
@@ -1138,6 +1146,7 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         },
       });
     }
+
     const userBank = user.bankAccounts.find(
       (bank) => bank._id.toString() === bankid
     );
@@ -1150,13 +1159,6 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         },
       });
     }
-    const transactionId = uuidv4();
-
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
-      { $inc: { wallet: -amount } },
-      { new: true }
-    );
 
     let lastDepositName = null;
     try {
@@ -1172,6 +1174,8 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
       console.error("Error checking last deposit name:", error);
     }
 
+    const transactionId = uuidv4();
+
     const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
       await getTotalGameBalance(user);
 
@@ -1181,45 +1185,71 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
 
     const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
 
-    const newWithdrawal = new Withdraw({
-      transactionId: transactionId,
-      userId: userid,
-      username: user.username,
-      fullname: user.fullname,
-      amount: amount,
-      walletamount: totalWalletAmount,
-      bankname: userBank.bankname,
-      ownername: userBank.name,
-      transfernumber: userBank.banknumber,
-      bankid: userBank._id,
-      transactionType: "withdraw",
-      method: "manual",
-      processBy: "admin",
-      status: "pending",
-      remark: "CS",
-      duplicateIP: user.duplicateIP,
-      depositname: lastDepositName,
-    });
-    const savedWithdrawal = await newWithdrawal.save();
+    session = await mongoose.startSession();
+    session.startTransaction();
 
-    const walletLog = new UserWalletLog({
-      userId: userid,
-      transactionid: newWithdrawal.transactionId,
-      transactiontime: new Date(),
-      transactiontype: "withdraw",
-      amount: amount,
-      status: "pending",
-    });
-    await walletLog.save();
+    try {
+      const newWithdrawal = new Withdraw({
+        transactionId: transactionId,
+        userId: userid,
+        username: user.username,
+        fullname: user.fullname,
+        amount: amount,
+        walletamount: totalWalletAmount,
+        bankname: userBank.bankname,
+        ownername: userBank.name,
+        transfernumber: userBank.banknumber,
+        bankid: userBank._id,
+        transactionType: "withdraw",
+        method: "manual",
+        processBy: "admin",
+        status: "pending",
+        remark: "CS",
+        duplicateIP: user.duplicateIP,
+        depositname: lastDepositName,
+      });
+      const savedWithdrawal = await newWithdrawal.save({ session });
 
-    res.status(200).json({
-      success: true,
-      message: {
-        en: "Withdrawal submitted successfully",
-        zh: "提款提交成功",
-      },
-      data: savedWithdrawal,
-    });
+      await User.findByIdAndUpdate(
+        user._id,
+        { $inc: { wallet: -amount } },
+        { new: true, session }
+      );
+
+      const walletLog = new UserWalletLog({
+        userId: userid,
+        transactionid: newWithdrawal.transactionId,
+        transactiontime: new Date(),
+        transactiontype: "withdraw",
+        amount: amount,
+        status: "pending",
+      });
+      await walletLog.save({ session });
+
+      await session.commitTransaction();
+
+      res.status(200).json({
+        success: true,
+        message: {
+          en: "Withdrawal submitted successfully",
+          zh: "提款提交成功",
+        },
+        data: savedWithdrawal,
+      });
+    } catch (txError) {
+      await session.abortTransaction();
+
+      if (txError.code === 11000) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "User already has a pending withdrawal request",
+            zh: "用户已有一笔待处理的提现申请",
+          },
+        });
+      }
+      throw txError;
+    }
   } catch (error) {
     console.error("Error during withdraw:", error);
     res.status(200).json({
@@ -1230,6 +1260,10 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
       },
       error: error.toString(),
     });
+  } finally {
+    if (session) {
+      session.endSession();
+    }
   }
 });
 
