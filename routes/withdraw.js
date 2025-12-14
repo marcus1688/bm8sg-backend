@@ -676,6 +676,8 @@ router.get("/api/user/turnover-check", authenticateToken, async (req, res) => {
 
 // Customer Submit Withdraw
 router.post("/api/withdraw", authenticateToken, async (req, res) => {
+  let session = null;
+
   try {
     const userId = req.user.userId;
     const user = await User.findById(userId);
@@ -859,6 +861,7 @@ router.post("/api/withdraw", authenticateToken, async (req, res) => {
         }
       }
     }
+
     const malaysiaTimezone = "Asia/Kuala_Lumpur";
     const todayStart = moment().tz(malaysiaTimezone).startOf("day").utc();
     const todayEnd = moment().tz(malaysiaTimezone).endOf("day").utc();
@@ -870,6 +873,7 @@ router.post("/api/withdraw", authenticateToken, async (req, res) => {
         $lte: todayEnd.toDate(),
       },
     });
+
     const todayWithdrawalCount = todayWithdrawals.length;
     if (todayWithdrawalCount >= withdrawCountLimit) {
       return res.status(200).json({
@@ -926,11 +930,7 @@ router.post("/api/withdraw", authenticateToken, async (req, res) => {
         },
       });
     }
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
-      { $inc: { wallet: -withdrawAmount } },
-      { new: true }
-    );
+
     let lastDepositName = null;
     try {
       const lastApprovedDeposit = await Deposit.findOne({
@@ -944,6 +944,7 @@ router.post("/api/withdraw", authenticateToken, async (req, res) => {
     } catch (error) {
       console.error("Error checking last deposit name:", error);
     }
+
     const transactionId = uuidv4();
 
     const { totalBalance: totalGameBalance, errors: balanceFetchErrors } =
@@ -954,45 +955,73 @@ router.post("/api/withdraw", authenticateToken, async (req, res) => {
     }
 
     const totalWalletAmount = Number(user.wallet || 0) + totalGameBalance;
+    session = await mongoose.startSession();
+    session.startTransaction();
 
-    const newWithdrawal = new Withdraw({
-      transactionId: transactionId,
-      userId,
-      username: user.username,
-      fullname: user.fullname,
-      amount: withdrawAmount,
-      walletamount: totalWalletAmount,
-      bankname: userBank.bankname,
-      ownername: userBank.name,
-      transfernumber: userBank.banknumber,
-      bankid: userBank._id,
-      transactionType: "withdraw",
-      method: "manual",
-      processBy: "admin",
-      status: "pending",
-      remark: "-",
-      duplicateIP: user.duplicateIP,
-      depositname: lastDepositName,
-    });
-    const savedWithdrawal = await newWithdrawal.save();
-    const walletLog = new UserWalletLog({
-      userId: userId,
-      transactionid: newWithdrawal.transactionId,
-      transactiontime: new Date(),
-      transactiontype: "withdraw",
-      amount: withdrawAmount,
-      status: "pending",
-    });
-    await walletLog.save();
-    res.status(200).json({
-      success: true,
-      message: {
-        en: "Withdrawal submitted successfully",
-        zh: "提现申请提交成功",
-        ms: "Pengeluaran berjaya dihantar",
-      },
-      withdrawal: savedWithdrawal,
-    });
+    try {
+      const newWithdrawal = new Withdraw({
+        transactionId: transactionId,
+        userId,
+        username: user.username,
+        fullname: user.fullname,
+        amount: withdrawAmount,
+        walletamount: totalWalletAmount,
+        bankname: userBank.bankname,
+        ownername: userBank.name,
+        transfernumber: userBank.banknumber,
+        bankid: userBank._id,
+        transactionType: "withdraw",
+        method: "manual",
+        processBy: "admin",
+        status: "pending",
+        remark: "-",
+        duplicateIP: user.duplicateIP,
+        depositname: lastDepositName,
+      });
+      const savedWithdrawal = await newWithdrawal.save({ session });
+
+      await User.findByIdAndUpdate(
+        user._id,
+        { $inc: { wallet: -withdrawAmount } },
+        { new: true, session }
+      );
+
+      const walletLog = new UserWalletLog({
+        userId: userId,
+        transactionid: newWithdrawal.transactionId,
+        transactiontime: new Date(),
+        transactiontype: "withdraw",
+        amount: withdrawAmount,
+        status: "pending",
+      });
+      await walletLog.save({ session });
+
+      await session.commitTransaction();
+
+      res.status(200).json({
+        success: true,
+        message: {
+          en: "Withdrawal submitted successfully",
+          zh: "提现申请提交成功",
+          ms: "Pengeluaran berjaya dihantar",
+        },
+        withdrawal: savedWithdrawal,
+      });
+    } catch (txError) {
+      await session.abortTransaction();
+
+      if (txError.code === 11000) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "You already have a pending withdrawal request. Please wait for it to be processed",
+            zh: "您已有一笔待处理的提现申请，请等待处理完成",
+            ms: "Anda sudah mempunyai permintaan pengeluaran yang belum selesai",
+          },
+        });
+      }
+      throw txError;
+    }
   } catch (error) {
     console.error("Error during submit withdraw:", error);
     res.status(500).json({
@@ -1003,6 +1032,10 @@ router.post("/api/withdraw", authenticateToken, async (req, res) => {
         ms: "Gagal menghantar pengeluaran",
       },
     });
+  } finally {
+    if (session) {
+      session.endSession();
+    }
   }
 });
 
