@@ -853,7 +853,7 @@ router.post("/api/yggdrasil/login", async (req, res) => {
   }
 });
 
-router.post("/api/yggdrasil/getBalance", async (req, res) => {
+router.post("/api/yggdrasil/getbalance.json", async (req, res) => {
   try {
     const { brand_id, sign, token, brand_uid } = req.body;
 
