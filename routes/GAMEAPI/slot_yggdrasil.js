@@ -798,7 +798,7 @@ router.post(
   }
 );
 
-router.post("/api/yggdrasil/login", async (req, res) => {
+router.post("/api/yggdrasil/playerinfo.json", async (req, res) => {
   try {
     const { brand_id, sign, token, brand_uid } = req.body;
     if (!token || !sign || !brand_uid || !brand_id) {
@@ -907,7 +907,7 @@ router.post("/api/yggdrasil/getbalance.json", async (req, res) => {
   }
 });
 
-router.post("/api/yggdrasil/wager", async (req, res) => {
+router.post("/api/yggdrasil/wager.json", async (req, res) => {
   try {
     const {
       brand_id,
