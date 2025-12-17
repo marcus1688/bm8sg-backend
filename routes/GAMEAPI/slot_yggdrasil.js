@@ -800,7 +800,8 @@ router.post(
 
 router.post("/api/yggdrasil/playerinfo.json", async (req, res) => {
   try {
-    const { brand_id, sign, token, brand_uid } = req.body;
+    console.log(req.body, "playerinfo");
+    const { org, sign, token, brand_uid } = req.body;
     if (!token || !sign || !brand_uid || !brand_id) {
       console.log("token failed");
       return res.status(200).json({
@@ -855,6 +856,7 @@ router.post("/api/yggdrasil/playerinfo.json", async (req, res) => {
 
 router.post("/api/yggdrasil/getbalance.json", async (req, res) => {
   try {
+    console.log(req.body, "getbalance");
     const { brand_id, sign, token, brand_uid } = req.body;
 
     if (!token || !sign || !brand_uid || !brand_id) {
