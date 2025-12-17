@@ -13,6 +13,9 @@ const slotDCTYGGDrasilGamechema = new mongoose.Schema(
     cancelId: {
       type: String,
     },
+    endWagerId: {
+      type: String,
+    },
     appendId: {
       type: String,
     },

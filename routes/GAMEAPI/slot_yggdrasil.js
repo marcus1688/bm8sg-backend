@@ -74,42 +74,56 @@ async function GameWalletLogAttempt(
   });
 }
 
-const validateDCTToken = async (brand_uid, token, lockType = null) => {
+const validateDCTToken = async (playerid, token) => {
   const projection = {
     wallet: 1,
     yggdrasilGameToken: 1,
     _id: 1,
+    gameId: 1,
+    username: 1,
+    "gameLock.yggdrasil.lock": 1,
   };
-
-  if (lockType) {
-    projection[`gameLock.${lockType}.lock`] = 1;
-  }
 
   const user = await User.findOne(
     {
-      gameId: brand_uid,
+      gameId: playerid,
       yggdrasilGameToken: token,
     },
     projection
   ).lean();
 
   if (!user) {
-    const tokenExists = await User.exists({
-      yggdrasilGameToken: token,
-    });
-
-    if (tokenExists) {
-      return {
-        valid: false,
-        code: 5013,
-        msg: "Session authentication failed, token does not match with player",
-      };
-    }
-
     return {
       valid: false,
       code: 5009,
-      msg: "Player's account or token does not exist",
+      msg: "Player is not existed",
+    };
+  }
+
+  return { valid: true, user };
+};
+
+const validateDCTTokenOnInitial = async (token) => {
+  const projection = {
+    wallet: 1,
+    yggdrasilGameToken: 1,
+    _id: 1,
+    gameId: 1,
+    username: 1,
+  };
+
+  const user = await User.findOne(
+    {
+      yggdrasilGameToken: token,
+    },
+    projection
+  ).lean();
+
+  if (!user) {
+    return {
+      valid: false,
+      code: 5009,
+      msg: "Player is not existed",
     };
   }
 
@@ -800,8 +814,9 @@ router.post(
 
 router.post("/api/yggdrasil/playerinfo.json", async (req, res) => {
   try {
-    const { brand_id, sign, token, brand_uid } = req.body;
-    if (!token || !sign || !brand_uid || !brand_id) {
+    const { org, sessiontoken } = req.body;
+
+    if (!org || !sessiontoken) {
       console.log("token failed");
       return res.status(200).json({
         code: 5001,
@@ -809,21 +824,15 @@ router.post("/api/yggdrasil/playerinfo.json", async (req, res) => {
       });
     }
 
-    const generatedsign = generateSignature({
-      brandId: brand_id,
-      params: [token],
-      apiKey: dctyggdrasilGameKey,
-    });
-
-    if (sign !== generatedsign) {
+    if (org !== dctyggdrasilORG) {
       console.log("sign validate failed");
       return res.status(200).json({
-        code: 5000,
-        msg: "Verification code error",
+        code: 5005,
+        msg: "Brand is not existed",
       });
     }
 
-    const validation = await validateDCTToken(brand_uid, token);
+    const validation = await validateDCTTokenOnInitial(sessiontoken);
 
     if (!validation.valid) {
       return res.status(200).json({
@@ -833,21 +842,25 @@ router.post("/api/yggdrasil/playerinfo.json", async (req, res) => {
     }
 
     return res.status(200).json({
-      code: 1000,
-      msg: "Success",
+      code: 0,
+      msg: "success",
       data: {
-        brand_uid: brand_uid,
-        currency: "MYR",
+        playerId: validation.user.gameId,
+        nickName: validation.user.username,
+        organization: org,
         balance: roundToTwoDecimals(validation.user.wallet),
+        currency: "SGD",
+        homeCurrency: "SGD",
+        country: "SG",
       },
     });
   } catch (error) {
     console.log(
-      "YGGDRASIL Error in game provider calling ae96 api",
+      "YGGDRASIL Error in game provider calling playerinfo api",
       error.message
     );
     return res.status(200).json({
-      code: 1001,
+      code: 1,
       msg: "System error",
     });
   }
@@ -855,30 +868,24 @@ router.post("/api/yggdrasil/playerinfo.json", async (req, res) => {
 
 router.post("/api/yggdrasil/getbalance.json", async (req, res) => {
   try {
-    const { brand_id, sign, token, brand_uid } = req.body;
+    const { org, sessiontoken, playerid } = req.body;
 
-    if (!token || !sign || !brand_uid || !brand_id) {
+    if (!org || !sessiontoken || !playerid) {
       return res.status(200).json({
         code: 5001,
         msg: "Request parameter error",
       });
     }
 
-    const generatedsign = generateSignature({
-      brandId: brand_id,
-      params: [token],
-      apiKey: dctyggdrasilGameKey,
-    });
-
-    if (sign !== generatedsign) {
+    if (org !== dctyggdrasilORG) {
       console.log("sign validate failed");
       return res.status(200).json({
-        code: 5000,
-        msg: "Verification code error",
+        code: 5005,
+        msg: "Brand is not existed",
       });
     }
 
-    const validation = await validateDCTToken(brand_uid, token);
+    const validation = await validateDCTToken(playerid, sessiontoken);
 
     if (!validation.valid) {
       return res.status(200).json({
@@ -886,22 +893,26 @@ router.post("/api/yggdrasil/getbalance.json", async (req, res) => {
         msg: validation.msg,
       });
     }
+
     return res.status(200).json({
-      code: 1000,
-      msg: "Success",
+      code: 0,
+      msg: "success",
       data: {
-        brand_uid: brand_uid,
-        currency: "MYR",
+        playerId: validation.user.gameId,
+        nickName: validation.user.username,
+        organization: org,
         balance: roundToTwoDecimals(validation.user.wallet),
+        currency: "SGD",
+        homeCurrency: "SGD",
       },
     });
   } catch (error) {
     console.log(
-      "YGGDRASIL Error in game provider calling ae96 api",
+      "YGGDRASIL Error in game provider calling getbalance api",
       error.message
     );
     return res.status(200).json({
-      code: 1001,
+      code: 1,
       msg: "System error",
     });
   }
@@ -910,55 +921,43 @@ router.post("/api/yggdrasil/getbalance.json", async (req, res) => {
 router.post("/api/yggdrasil/wager.json", async (req, res) => {
   try {
     const {
-      brand_id,
-      sign,
-      token,
-      brand_uid,
+      sessiontoken,
+      org,
+      playerid,
       amount,
-      round_id,
-      wager_id,
-      is_endround,
       currency,
-      provider,
+      reference,
+      subreference,
     } = req.body;
 
-    if (!token || !sign || !brand_uid || !brand_id) {
+    if (
+      !sessiontoken ||
+      !org ||
+      !playerid ||
+      amount === undefined ||
+      amount === null ||
+      !currency ||
+      !reference ||
+      !subreference
+    ) {
       return res.status(200).json({
         code: 5001,
         msg: "Request parameter error",
       });
     }
 
-    const providerMap = {
-      yg: { lock: "yggdrasil", name: "YGGDRASIL" },
-    };
-
-    const providerInfo = providerMap[provider];
-
-    if (!providerInfo) {
+    if (org !== dctyggdrasilORG) {
+      console.log("sign validate failed");
       return res.status(200).json({
-        code: 5015,
-        msg: "Invalid provider",
-      });
-    }
-
-    const generatedsign = generateSignature({
-      brandId: brand_id,
-      params: [wager_id],
-      apiKey: dctyggdrasilGameKey,
-    });
-
-    if (sign !== generatedsign) {
-      return res.status(200).json({
-        code: 5000,
-        msg: "Verification code error",
+        code: 5005,
+        msg: "Brand is not existed",
       });
     }
 
     const [validation, existingBet] = await Promise.all([
-      validateDCTToken(brand_uid, token, providerInfo.lock),
+      validateDCTToken(playerid, sessiontoken),
       SlotDCTGameYggDrasilModal.findOne(
-        { betId: wager_id, tranId: round_id },
+        { betId: reference, tranId: subreference },
         { _id: 1 }
       ).lean(),
     ]);
@@ -970,30 +969,29 @@ router.post("/api/yggdrasil/wager.json", async (req, res) => {
       });
     }
 
-    const isLocked = validation.user.gameLock?.[providerInfo.lock]?.lock;
-
-    if (isLocked) {
+    if (validation.user.gameLock.yggdrasil.lock) {
       return res.status(200).json({
-        code: 5010,
-        msg: "Player blocked",
+        code: 1007,
+        msg: "The account is blocked and no bets can be performed",
       });
     }
 
     if (existingBet) {
       return res.status(200).json({
         code: 5043,
-        msg: "Bet record is duplicated/identical",
+        msg: "Bet data existed",
         data: {
-          brand_uid: brand_uid,
-          currency: currency,
+          playerId: validation.user.gameId,
+          organization: org,
           balance: roundToTwoDecimals(validation.user.wallet),
+          currency: "SGD",
         },
       });
     }
 
     const updatedUserBalance = await User.findOneAndUpdate(
       {
-        gameId: brand_uid,
+        gameId: playerid,
         wallet: { $gte: roundToTwoDecimals(amount || 0) },
       },
       { $inc: { wallet: -roundToTwoDecimals(amount || 0) } },
@@ -1001,76 +999,79 @@ router.post("/api/yggdrasil/wager.json", async (req, res) => {
     ).lean();
 
     if (!updatedUserBalance) {
+      const latestUser = await User.findOne(
+        { gameId: playerid },
+        { wallet: 1, _id: 1 }
+      ).lean();
+
       return res.status(200).json({
-        code: 5003,
-        msg: "Insufficient balance",
+        code: 1006,
+        msg: "You do not have sufficient funds for the bet",
         data: {
-          brand_uid: brand_uid,
-          currency: currency,
-          balance: roundToTwoDecimals(validation.user.wallet),
+          organization: org,
+          playerId: validation.user.gameId,
+          balance: roundToTwoDecimals(latestUser.wallet),
+          currency: "SGD",
         },
       });
     }
 
     await SlotDCTGameYggDrasilModal.create({
-      username: brand_uid,
+      username: playerid,
       betamount: roundToTwoDecimals(amount || 0),
-      betId: wager_id,
-      tranId: round_id,
+      betId: reference,
+      tranId: subreference,
       bet: true,
-      provider: providerInfo.name,
+      provider: "YGGDRASIL",
     });
 
     return res.status(200).json({
-      code: 1000,
-      msg: "Success",
+      code: 0,
+      msg: "success",
       data: {
-        brand_uid: brand_uid,
-        currency: currency,
+        playerId: validation.user.gameId,
+        nickName: validation.user.username,
+        organization: org,
         balance: roundToTwoDecimals(updatedUserBalance.wallet),
+        currency: "SGD",
+        homeCurrency: "SGD",
       },
     });
   } catch (error) {
     console.log(
-      "YGGDRASIL Error in game provider calling ae96 bet api",
+      "YGGDRASIL Error in game provider calling wager api",
       error.message
     );
     return res.status(200).json({
-      code: 1001,
+      code: 1,
       msg: "System error",
     });
   }
 });
 
-router.post("/api/yggdrasil/cancelWager", async (req, res) => {
+router.post("/api/yggdrasil/cancelwager.json", async (req, res) => {
   try {
-    const { brand_id, sign, brand_uid, round_id, wager_id, currency } =
-      req.body;
+    const { org, playerid, reference, subreference, currency } = req.body;
 
-    if (!sign || !brand_uid || !brand_id) {
+    if (!org || !playerid || !currency || !reference || !subreference) {
       return res.status(200).json({
         code: 5001,
         msg: "Request parameter error",
       });
     }
 
-    const generatedsign = generateSignature({
-      brandId: brand_id,
-      params: [wager_id],
-      apiKey: dctyggdrasilGameKey,
-    });
-
-    if (sign !== generatedsign) {
+    if (org !== dctyggdrasilORG) {
+      console.log("sign validate failed");
       return res.status(200).json({
-        code: 5000,
-        msg: "Verification code error",
+        code: 5005,
+        msg: "Brand is not existed",
       });
     }
 
     const [currentUser, existingBet] = await Promise.all([
-      User.findOne({ gameId: brand_uid }, { wallet: 1, _id: 1 }).lean(),
+      User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
       SlotDCTGameYggDrasilModal.findOne(
-        { tranId: round_id, betId: wager_id },
+        { betId: reference, tranId: subreference },
         { cancel: 1, betamount: 1, _id: 1 }
       ).lean(),
     ]);
@@ -1078,18 +1079,19 @@ router.post("/api/yggdrasil/cancelWager", async (req, res) => {
     if (!currentUser) {
       return res.status(200).json({
         code: 5009,
-        msg: "Player's account or token does not exist",
+        msg: "Player is not existed",
       });
     }
 
     if (!existingBet) {
       return res.status(200).json({
         code: 5042,
-        msg: "Bet record does not exist.",
+        msg: "Bet data is not existed",
         data: {
-          brand_uid: brand_uid,
-          currency: currency,
+          organization: org,
+          playerId: playerid,
           balance: roundToTwoDecimals(currentUser.wallet),
+          currency: "SGD",
         },
       });
     }
@@ -1097,11 +1099,12 @@ router.post("/api/yggdrasil/cancelWager", async (req, res) => {
     if (existingBet.cancel) {
       return res.status(200).json({
         code: 5043,
-        msg: "Bet record is duplicated/identical",
+        msg: "Bet data existed",
         data: {
-          brand_uid: brand_uid,
-          currency: currency,
+          organization: org,
+          playerId: playerid,
           balance: roundToTwoDecimals(currentUser.wallet),
+          currency: "SGD",
         },
       });
     }
@@ -1114,61 +1117,65 @@ router.post("/api/yggdrasil/cancelWager", async (req, res) => {
       ).lean(),
 
       SlotDCTGameYggDrasilModal.updateOne(
-        { tranId: round_id, betId: wager_id },
-        { $set: { cancel: true, cancelId: wager_id } }
+        { betId: reference, tranId: subreference },
+        { $set: { cancel: true } }
       ),
     ]);
 
     return res.status(200).json({
-      code: 1000,
-      msg: "Success",
+      code: 0,
+      msg: "success",
       data: {
-        brand_uid: brand_uid,
-        currency: currency,
+        playerId: playerid,
+        organization: org,
         balance: roundToTwoDecimals(updatedUserBalance.wallet),
+        currency: "SGD",
       },
     });
   } catch (error) {
     console.log(
-      "YGGDRASIL Error in game provider calling ae96 refund api",
+      "YGGDRASIL Error in game provider calling cancelwager api",
       error.message
     );
     return res.status(200).json({
-      code: 1001,
+      code: 1,
       msg: "System error",
     });
   }
 });
 
-router.post("/api/yggdrasil/appendWager", async (req, res) => {
+router.post("/api/yggdrasil/appendwagerresult.json", async (req, res) => {
   try {
-    const { brand_id, sign, brand_uid, round_id, amount, wager_id, currency } =
+    const { org, playerid, amount, currency, reference, subreference } =
       req.body;
 
-    if (!sign || !brand_uid || !brand_id) {
+    if (
+      !org ||
+      !playerid ||
+      amount === undefined ||
+      amount === null ||
+      !currency ||
+      !reference ||
+      !subreference
+    ) {
       return res.status(200).json({
         code: 5001,
         msg: "Request parameter error",
       });
     }
 
-    const generatedsign = generateSignature({
-      brandId: brand_id,
-      params: [wager_id],
-      apiKey: dctyggdrasilGameKey,
-    });
-
-    if (sign !== generatedsign) {
+    if (org !== dctyggdrasilORG) {
+      console.log("sign validate failed");
       return res.status(200).json({
-        code: 5000,
-        msg: "Verification code error",
+        code: 5005,
+        msg: "Brand is not existed",
       });
     }
 
     const [currentUser, existingBet] = await Promise.all([
-      User.findOne({ gameId: brand_uid }, { wallet: 1, _id: 1 }).lean(),
+      User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
       SlotDCTGameYggDrasilModal.findOne(
-        { appendId: wager_id },
+        { betId: reference, tranId: subreference },
         { _id: 1 }
       ).lean(),
     ]);
@@ -1176,17 +1183,19 @@ router.post("/api/yggdrasil/appendWager", async (req, res) => {
     if (!currentUser) {
       return res.status(200).json({
         code: 5009,
-        msg: "Player's account or token does not exist",
+        msg: "Player is not existed",
       });
     }
+
     if (existingBet) {
       return res.status(200).json({
         code: 5043,
-        msg: "Bet record is duplicated/identical",
+        msg: "Bet data existed",
         data: {
-          brand_uid: brand_uid,
-          currency: currency,
+          organization: org,
+          playerId: playerid,
           balance: roundToTwoDecimals(currentUser.wallet),
+          currency: "SGD",
         },
       });
     }
@@ -1199,235 +1208,17 @@ router.post("/api/yggdrasil/appendWager", async (req, res) => {
       ).lean(),
 
       SlotDCTGameYggDrasilModal.updateOne(
-        { tranId: round_id },
+        { betId: reference, tranId: subreference },
         {
           $set: {
             settle: true,
             settleamount: roundToTwoDecimals(amount),
-            tranId: round_id,
-            appendId: wager_id,
           },
-        }
-      ),
-    ]);
-
-    return res.status(200).json({
-      code: 1000,
-      msg: "Success",
-      data: {
-        brand_uid: brand_uid,
-        currency: currency,
-        balance: roundToTwoDecimals(updatedUserBalance.wallet),
-      },
-    });
-  } catch (error) {
-    console.log(
-      "YGGDRASIL Error in game provider calling ae96 result api",
-      error.message
-    );
-    return res.status(200).json({
-      code: 1001,
-      msg: "System error",
-    });
-  }
-});
-
-router.post("/api/yggdrasil/endWager", async (req, res) => {
-  try {
-    const { brand_id, sign, brand_uid, round_id, amount, wager_id, currency } =
-      req.body;
-    if (!sign || !brand_uid || !brand_id) {
-      return res.status(200).json({
-        code: 5001,
-        msg: "Request parameter error",
-      });
-    }
-
-    const generatedsign = generateSignature({
-      brandId: brand_id,
-      params: [wager_id],
-      apiKey: dctyggdrasilGameKey,
-    });
-
-    if (sign !== generatedsign) {
-      return res.status(200).json({
-        code: 5000,
-        msg: "Verification code error",
-      });
-    }
-
-    const [currentUser, existingBet, duplicateWager] = await Promise.all([
-      User.findOne({ gameId: brand_uid }, { wallet: 1, _id: 1 }).lean(),
-      SlotDCTGameYggDrasilModal.findOne(
-        { tranId: round_id },
-        { _id: 1, settle: 1, settleId: 1, settleamount: 1 }
-      ).lean(),
-      SlotDCTGameYggDrasilModal.findOne(
-        { settleId: wager_id },
-        { _id: 1 }
-      ).lean(),
-    ]);
-
-    if (!currentUser) {
-      return res.status(200).json({
-        code: 5009,
-        msg: "Player's account or token does not exist",
-      });
-    }
-
-    if (!existingBet) {
-      return res.status(200).json({
-        code: 5042,
-        msg: "Bet record does not exist.",
-        data: {
-          brand_uid: brand_uid,
-          currency: currency,
-          balance: roundToTwoDecimals(currentUser.wallet),
-        },
-      });
-    }
-
-    if (duplicateWager) {
-      return res.status(200).json({
-        code: 5043,
-        msg: "Bet record is duplicated/identical",
-        data: {
-          brand_uid: brand_uid,
-          currency: currency,
-          balance: roundToTwoDecimals(currentUser.wallet),
-        },
-      });
-    }
-
-    const updateQuery = {
-      $set: {
-        settle: true,
-        settleamount: roundToTwoDecimals(amount),
-        settleId: wager_id,
-        ...(existingBet.settle && { tranId: round_id }),
-      },
-    };
-
-    const [updatedUserBalance] = await Promise.all([
-      User.findByIdAndUpdate(
-        currentUser._id,
-        { $inc: { wallet: roundToTwoDecimals(amount || 0) } },
-        { new: true, projection: { wallet: 1 } }
-      ).lean(),
-
-      SlotDCTGameYggDrasilModal.updateOne({ tranId: round_id }, updateQuery),
-    ]);
-
-    return res.status(200).json({
-      code: 1000,
-      msg: "Success",
-      data: {
-        brand_uid: brand_uid,
-        currency: currency,
-        balance: roundToTwoDecimals(updatedUserBalance.wallet),
-      },
-    });
-  } catch (error) {
-    console.log(
-      "YGGDRASIL Error in game provider calling ae96 result api",
-      error.message
-    );
-    return res.status(200).json({
-      code: 1001,
-      msg: "System error",
-    });
-  }
-});
-
-router.post("/api/yggdrasil/freeSpinResult", async (req, res) => {
-  try {
-    const {
-      brand_id,
-      sign,
-      brand_uid,
-      round_id,
-      amount,
-      wager_id,
-      currency,
-      provider,
-    } = req.body;
-
-    if (!sign || !brand_uid || !brand_id) {
-      return res.status(200).json({
-        code: 5001,
-        msg: "Request parameter error",
-      });
-    }
-
-    const generatedsign = generateSignature({
-      brandId: brand_id,
-      params: [wager_id],
-      apiKey: dctyggdrasilGameKey,
-    });
-
-    if (sign !== generatedsign) {
-      return res.status(200).json({
-        code: 5000,
-        msg: "Verification code error",
-      });
-    }
-
-    const [currentUser, existingBet] = await Promise.all([
-      User.findOne({ gameId: brand_uid }, { wallet: 1, _id: 1 }).lean(),
-      SlotDCTGameYggDrasilModal.findOne(
-        { freespinId: wager_id },
-        { _id: 1 }
-      ).lean(),
-    ]);
-
-    if (!currentUser) {
-      return res.status(200).json({
-        code: 5009,
-        msg: "Player's account or token does not exist",
-      });
-    }
-
-    if (existingBet) {
-      return res.status(200).json({
-        code: 5043,
-        msg: "Bet record is duplicated/identical",
-        data: {
-          brand_uid: brand_uid,
-          currency: currency,
-          balance: roundToTwoDecimals(currentUser.wallet),
-        },
-      });
-    }
-
-    const providerMap = {
-      yg: { lock: "yggdrasil", name: "YGGDRASIL" },
-    };
-
-    const providerInfo = providerMap[provider];
-
-    if (!providerInfo) {
-      return res.status(200).json({
-        code: 5015,
-        msg: "Invalid provider",
-      });
-    }
-
-    const [updatedUserBalance] = await Promise.all([
-      User.findByIdAndUpdate(
-        currentUser._id,
-        { $inc: { wallet: roundToTwoDecimals(amount || 0) } },
-        { new: true, projection: { wallet: 1 } }
-      ).lean(),
-
-      SlotDCTGameYggDrasilModal.updateOne(
-        { tranId: round_id },
-        {
-          $set: {
-            settle: true,
-            settleamount: roundToTwoDecimals(amount),
-            tranId: round_id,
-            freespinId: wager_id,
-            provider: providerInfo.name,
+          $setOnInsert: {
+            bet: true,
+            betamount: 0,
+            username: playerid,
+            provider: "YGGDRASIL",
           },
         },
         { upsert: true }
@@ -1435,63 +1226,64 @@ router.post("/api/yggdrasil/freeSpinResult", async (req, res) => {
     ]);
 
     return res.status(200).json({
-      code: 1000,
-      msg: "Success",
+      code: 0,
+      msg: "success",
       data: {
-        brand_uid: brand_uid,
-        currency: currency,
+        playerId: playerid,
+        organization: org,
         balance: roundToTwoDecimals(updatedUserBalance.wallet),
+        currency: "SGD",
       },
     });
   } catch (error) {
     console.log(
-      "YGGDRASIL Error in game provider calling ae96 result api",
+      "YGGDRASIL Error in game provider calling appendwager api",
       error.message
     );
     return res.status(200).json({
-      code: 1001,
+      code: 1,
       msg: "System error",
     });
   }
 });
 
-router.post("/api/yggdrasil/promoPayout", async (req, res) => {
+router.post("/api/yggdrasil/endwager.json", async (req, res) => {
   try {
-    const {
-      brand_id,
-      sign,
-      brand_uid,
-      trans_id,
-      amount,
-      promotion_id,
-      currency,
-      provider,
-    } = req.body;
+    const { org, playerid, amount, currency, reference, subreference } =
+      req.body;
 
-    if (!sign || !brand_uid || !brand_id) {
+    if (
+      !org ||
+      !playerid ||
+      amount === undefined ||
+      amount === null ||
+      !currency ||
+      !reference ||
+      !subreference
+    ) {
       return res.status(200).json({
         code: 5001,
         msg: "Request parameter error",
       });
     }
 
-    const generatedsign = generateSignature({
-      brandId: brand_id,
-      params: [promotion_id, trans_id],
-      apiKey: dctyggdrasilGameKey,
-    });
-
-    if (sign !== generatedsign) {
+    if (org !== dctyggdrasilORG) {
+      console.log("sign validate failed");
       return res.status(200).json({
-        code: 5000,
-        msg: "Verification code error",
+        code: 5005,
+        msg: "Brand is not existed",
       });
     }
 
-    const [currentUser, existingBet] = await Promise.all([
-      User.findOne({ gameId: brand_uid }, { wallet: 1, _id: 1 }).lean(),
+    const [currentUser, existingBet, duplicateSettle] = await Promise.all([
+      User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
+
       SlotDCTGameYggDrasilModal.findOne(
-        { betId: promotion_id, tranId: trans_id },
+        { betId: reference },
+        { _id: 1, settle: 1 }
+      ).lean(),
+      SlotDCTGameYggDrasilModal.findOne(
+        { betId: reference, endWagerId: subreference },
         { _id: 1 }
       ).lean(),
     ]);
@@ -1499,32 +1291,243 @@ router.post("/api/yggdrasil/promoPayout", async (req, res) => {
     if (!currentUser) {
       return res.status(200).json({
         code: 5009,
-        msg: "Player's account or token does not exist",
+        msg: "Player is not existed",
+      });
+    }
+
+    if (!existingBet) {
+      return res.status(200).json({
+        code: 5042,
+        msg: "Bet data is not existed",
+        data: {
+          organization: org,
+          playerId: playerid,
+          balance: roundToTwoDecimals(currentUser.wallet),
+          currency: "SGD",
+        },
+      });
+    }
+
+    if (duplicateSettle) {
+      return res.status(200).json({
+        code: 5043,
+        msg: "Bet data existed",
+        data: {
+          organization: org,
+          playerId: playerid,
+          balance: roundToTwoDecimals(currentUser.wallet),
+          currency: "SGD",
+        },
+      });
+    }
+
+    const updatePromise = existingBet.settle
+      ? SlotDCTGameYggDrasilModal.create({
+          username: playerid,
+          betId: reference,
+          endWagerId: subreference,
+          bet: true,
+          betamount: 0,
+          settle: true,
+          settleamount: roundToTwoDecimals(amount),
+          provider: "YGGDRASIL",
+        })
+      : SlotDCTGameYggDrasilModal.updateOne(
+          { betId: reference, settle: { $ne: true } },
+          {
+            $set: {
+              endWagerId: subreference,
+              settle: true,
+              settleamount: roundToTwoDecimals(amount),
+            },
+          }
+        );
+
+    const [updatedUserBalance] = await Promise.all([
+      User.findByIdAndUpdate(
+        currentUser._id,
+        { $inc: { wallet: roundToTwoDecimals(amount || 0) } },
+        { new: true, projection: { wallet: 1 } }
+      ).lean(),
+
+      updatePromise,
+    ]);
+
+    return res.status(200).json({
+      code: 0,
+      msg: "success",
+      data: {
+        playerId: playerid,
+        organization: org,
+        balance: roundToTwoDecimals(updatedUserBalance.wallet),
+        currency: "SGD",
+      },
+    });
+  } catch (error) {
+    console.log(
+      "YGGDRASIL Error in game provider calling endwager api",
+      error.message
+    );
+    return res.status(200).json({
+      code: 1,
+      msg: "System error",
+    });
+  }
+});
+
+router.post("/api/yggdrasil/campaignpayout.json", async (req, res) => {
+  try {
+    const { org, playerid, reference, cash, currency, bonus } = req.body;
+
+    if (
+      !org ||
+      !playerid ||
+      !reference ||
+      !currency ||
+      cash === undefined ||
+      cash === null ||
+      bonus === undefined ||
+      bonus === null
+    ) {
+      return res.status(200).json({
+        code: 5001,
+        msg: "Request parameter error",
+      });
+    }
+
+    if (org !== dctyggdrasilORG) {
+      console.log("sign validate failed");
+      return res.status(200).json({
+        code: 5005,
+        msg: "Brand is not existed",
+      });
+    }
+
+    const [currentUser, existingBet] = await Promise.all([
+      User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
+      SlotDCTGameYggDrasilModal.findOne(
+        { betId: reference },
+        { _id: 1 }
+      ).lean(),
+    ]);
+
+    if (!currentUser) {
+      return res.status(200).json({
+        code: 5009,
+        msg: "Player is not existed",
       });
     }
 
     if (existingBet) {
       return res.status(200).json({
         code: 5043,
-        msg: "Bet record is duplicated/identical",
+        msg: "Bet data existed",
         data: {
-          brand_uid: brand_uid,
-          currency: currency,
+          organization: org,
+          playerId: playerid,
           balance: roundToTwoDecimals(currentUser.wallet),
+          currency: "SGD",
         },
       });
     }
 
-    const providerMap = {
-      yg: { lock: "yggdrasil", name: "YGGDRASIL" },
-    };
+    const toUpdateAmount = (cash || 0) + (bonus || 0);
 
-    const providerInfo = providerMap[provider];
+    const [updatedUserBalance] = await Promise.all([
+      User.findByIdAndUpdate(
+        currentUser._id,
+        { $inc: { wallet: roundToTwoDecimals(toUpdateAmount) } },
+        { new: true, projection: { wallet: 1 } }
+      ).lean(),
 
-    if (!providerInfo) {
+      SlotDCTGameYggDrasilModal.updateOne(
+        { betId: reference },
+        {
+          $set: {
+            settle: true,
+            settleamount: roundToTwoDecimals(toUpdateAmount),
+          },
+          $setOnInsert: {
+            bet: true,
+            betamount: 0,
+            username: playerid,
+            provider: "YGGDRASIL",
+          },
+        },
+        { upsert: true }
+      ),
+    ]);
+
+    return res.status(200).json({
+      code: 0,
+      msg: "success",
+      data: {
+        playerId: playerid,
+        organization: org,
+        balance: roundToTwoDecimals(updatedUserBalance.wallet),
+        currency: "SGD",
+      },
+    });
+  } catch (error) {
+    console.log(
+      "YGGDRASIL Error in game provider calling campaign payout api",
+      error.message
+    );
+    return res.status(200).json({
+      code: 1,
+      msg: "System error",
+    });
+  }
+});
+
+router.post("/api/yggdrasil/promopayout.json", async (req, res) => {
+  try {
+    const { org, playerid, amount, currency, promotionid, transid } = req.body;
+
+    if (
+      !org ||
+      !playerid ||
+      amount === undefined ||
+      amount === null ||
+      !currency ||
+      !promotionid ||
+      !transid
+    ) {
       return res.status(200).json({
-        code: 5015,
-        msg: "Invalid provider",
+        code: 5001,
+        msg: "Request parameter error",
+      });
+    }
+
+    if (org !== dctyggdrasilORG) {
+      console.log("sign validate failed");
+      return res.status(200).json({
+        code: 5005,
+        msg: "Brand is not existed",
+      });
+    }
+
+    const [currentUser, existingBet] = await Promise.all([
+      User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
+      SlotDCTGameYggDrasilModal.findOne({ betId: transid }, { _id: 1 }).lean(),
+    ]);
+
+    if (!currentUser) {
+      return res.status(200).json({
+        code: 5009,
+        msg: "Player is not existed",
+      });
+    }
+
+    if (existingBet) {
+      return res.status(200).json({
+        code: 5043,
+        msg: "Bet data existed",
+        data: {
+          playerId: playerid,
+          balance: roundToTwoDecimals(currentUser.wallet),
+          currency: "SGD",
+        },
       });
     }
 
@@ -1535,33 +1538,33 @@ router.post("/api/yggdrasil/promoPayout", async (req, res) => {
         { new: true, projection: { wallet: 1 } }
       ).lean(),
       SlotDCTGameYggDrasilModal.create({
-        username: brand_uid,
+        username: playerid,
         betamount: 0,
-        settleamount: roundToTwoDecimals(amount),
-        betId: promotion_id,
-        tranId: trans_id,
+        settleamount: roundToTwoDecimals(amount || 0),
+        betId: transid,
+        tranId: promotionid,
         bet: true,
         settle: true,
-        provider: providerInfo.name,
+        provider: "YGGDRASIL",
       }),
     ]);
 
     return res.status(200).json({
-      code: 1000,
-      msg: "Success",
+      code: 0,
+      msg: "success",
       data: {
-        brand_uid: brand_uid,
-        currency: currency,
+        playerId: playerid,
         balance: roundToTwoDecimals(updatedUserBalance.wallet),
+        currency: "SGD",
       },
     });
   } catch (error) {
     console.log(
-      "YGGDRASIL Error in game provider calling ae96 result api",
+      "YGGDRASIL Error in game provider calling promopayout api",
       error.message
     );
     return res.status(200).json({
-      code: 1001,
+      code: 1,
       msg: "System error",
     });
   }
