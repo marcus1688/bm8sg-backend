@@ -1541,4 +1541,192 @@ router.post("/api/rebatemanualclaim", authenticateToken, async (req, res) => {
   }
 });
 
+router.post(
+  "/admin/api/getdetailgamehistory/:userId",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const {
+        startDate,
+        endDate,
+        page = 1,
+        limit = 50,
+        provider,
+        category,
+      } = req.body;
+
+      // Validate dates
+      if (!startDate || !endDate) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "Start date and end date are required.",
+            zh: "开始日期和结束日期是必填项。",
+            ms: "Tarikh mula dan tarikh akhir diperlukan.",
+          },
+        });
+      }
+
+      // Find user
+      const user = await User.findById(userId, {
+        username: 1,
+        gameId: 1,
+      }).lean();
+      if (!user) {
+        return res.status(200).json({
+          success: false,
+          message: {
+            en: "User not found. Please try again or contact customer service for assistance.",
+            zh: "用户未找到，请重试或联系客服以获取帮助。",
+            ms: "Pengguna tidak ditemui, sila cuba lagi atau hubungi khidmat pelanggan untuk bantuan.",
+          },
+        });
+      }
+
+      const start = moment.utc(startDate).toDate();
+      const end = moment.utc(endDate).toDate();
+
+      // Define providers
+      const allProviders = [
+        {
+          name: "pussy888",
+          displayName: "PUSSY888",
+          model: slotPussy888Modal,
+          category: "slot",
+          usernameField: user.gameId,
+        },
+      ];
+
+      // Filter providers
+      let filteredProviders = allProviders;
+
+      if (provider) {
+        const providerLower = provider.toLowerCase();
+        filteredProviders = filteredProviders.filter(
+          (p) => p.name === providerLower
+        );
+      }
+
+      if (category) {
+        const categoryLower = category.toLowerCase();
+        filteredProviders = filteredProviders.filter(
+          (p) => p.category === categoryLower
+        );
+      }
+
+      if (filteredProviders.length === 0) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            pagination: {
+              currentPage: 1,
+              totalPages: 0,
+              limit: Number(limit),
+              totalRecords: 0,
+            },
+            summary: {
+              totalBetAmount: 0,
+              totalSettleAmount: 0,
+              totalWinLoss: 0,
+            },
+            records: [],
+          },
+        });
+      }
+
+      const skip = (Number(page) - 1) * Number(limit);
+
+      // Use aggregation for better performance
+      const aggregationPipeline = filteredProviders.map(
+        ({ displayName, category, model, usernameField }) => {
+          return model.aggregate([
+            {
+              $match: {
+                username: usernameField,
+                betTime: { $gte: start, $lte: end },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                betId: 1,
+                beganbalance: 1,
+                endbalance: 1,
+                gameName: 1,
+                betamount: 1,
+                settleamount: 1,
+                username: 1,
+                betTime: 1,
+                provider: { $literal: displayName },
+                category: { $literal: category },
+              },
+            },
+          ]);
+        }
+      );
+
+      const results = await Promise.all(aggregationPipeline);
+
+      // Combine and sort
+      let combinedData = results.flat();
+      combinedData.sort((a, b) => new Date(b.betTime) - new Date(a.betTime));
+
+      // Calculate totals
+      const totalRecords = combinedData.length;
+      const totalPages = Math.ceil(totalRecords / limit) || 1;
+
+      let totalBetAmount = 0;
+      let totalSettleAmount = 0;
+
+      for (let i = 0; i < combinedData.length; i++) {
+        totalBetAmount += combinedData[i].betamount || 0;
+        totalSettleAmount += combinedData[i].settleamount || 0;
+      }
+
+      // Apply pagination
+      const paginatedData = combinedData.slice(skip, skip + Number(limit));
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            username: user.username,
+            gameId: user.gameId,
+          },
+          dateRange: {
+            from: start,
+            to: end,
+          },
+          pagination: {
+            currentPage: Number(page),
+            totalPages,
+            limit: Number(limit),
+            totalRecords,
+          },
+          summary: {
+            totalBetAmount: Number(totalBetAmount.toFixed(2)),
+            totalSettleAmount: Number(totalSettleAmount.toFixed(2)),
+            totalWinLoss: Number(
+              (totalSettleAmount - totalBetAmount).toFixed(2)
+            ),
+          },
+          records: paginatedData,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching bet history:", error.message);
+      return res.status(200).json({
+        success: false,
+        message: {
+          en: "Failed to fetch bet history. Please try again.",
+          zh: "获取投注历史失败，请重试。",
+          ms: "Gagal mendapatkan sejarah pertaruhan. Sila cuba lagi.",
+        },
+        error: error.message,
+      });
+    }
+  }
+);
+
 module.exports = router;

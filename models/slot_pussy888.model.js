@@ -6,6 +6,15 @@ const slotPussy888echema = new mongoose.Schema(
     betId: {
       type: String,
     },
+    beganbalance: {
+      type: Number,
+    },
+    endbalance: {
+      type: Number,
+    },
+    gameName: {
+      type: String,
+    },
     betamount: {
       type: Number,
     },
@@ -47,7 +56,7 @@ const slotPussy888echema = new mongoose.Schema(
   }
 );
 
-slotPussy888echema.index({ createdAt: -1 }, { expireAfterSeconds: 172800 });
+slotPussy888echema.index({ createdAt: -1 }, { expireAfterSeconds: 7876000 });
 
 const slotPussy888Modal = mongoose.model(
   "slotPussy888Modal",
