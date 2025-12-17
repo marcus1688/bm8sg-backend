@@ -1275,15 +1275,11 @@ router.post("/api/yggdrasil/endwager.json", async (req, res) => {
       });
     }
 
-    const [currentUser, existingBet, duplicateWager] = await Promise.all([
+    const [currentUser, existingBet] = await Promise.all([
       User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
       SlotDCTGameYggDrasilModal.findOne(
         { betId: reference, tranId: subreference },
-        { _id: 1, settle: 1, settleId: 1, settleamount: 1 }
-      ).lean(),
-      SlotDCTGameYggDrasilModal.findOne(
-        { betId: reference, tranId: subreference },
-        { _id: 1 }
+        { _id: 1, settle: 1, settleamount: 1 }
       ).lean(),
     ]);
 
@@ -1307,7 +1303,7 @@ router.post("/api/yggdrasil/endwager.json", async (req, res) => {
       });
     }
 
-    if (duplicateWager) {
+    if (existingBet.settle) {
       return res.status(200).json({
         code: 5043,
         msg: "Bet data existed",
