@@ -1172,10 +1172,14 @@ router.post("/api/yggdrasil/appendwagerresult.json", async (req, res) => {
       });
     }
 
-    const [currentUser, existingBet] = await Promise.all([
+    const [currentUser, existingBet, duplicateSettle] = await Promise.all([
       User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
       SlotDCTGameYggDrasilModal.findOne(
-        { betId: reference, tranId: subreference },
+        { betId: reference },
+        { _id: 1, settle: 1 }
+      ).lean(),
+      SlotDCTGameYggDrasilModal.findOne(
+        { betId: reference, appendId: subreference },
         { _id: 1 }
       ).lean(),
     ]);
@@ -1187,7 +1191,7 @@ router.post("/api/yggdrasil/appendwagerresult.json", async (req, res) => {
       });
     }
 
-    if (existingBet) {
+    if (duplicateSettle) {
       return res.status(200).json({
         code: 5043,
         msg: "Bet data existed",
@@ -1200,6 +1204,29 @@ router.post("/api/yggdrasil/appendwagerresult.json", async (req, res) => {
       });
     }
 
+    const updatePromise =
+      !existingBet || existingBet.settle
+        ? SlotDCTGameYggDrasilModal.create({
+            username: playerid,
+            betId: reference,
+            appendId: subreference,
+            bet: true,
+            betamount: 0,
+            settle: true,
+            settleamount: roundToTwoDecimals(amount),
+            provider: "YGGDRASIL",
+          })
+        : SlotDCTGameYggDrasilModal.updateOne(
+            { betId: reference, settle: { $ne: true } },
+            {
+              $set: {
+                appendId: subreference,
+                settle: true,
+                settleamount: roundToTwoDecimals(amount),
+              },
+            }
+          );
+
     const [updatedUserBalance] = await Promise.all([
       User.findByIdAndUpdate(
         currentUser._id,
@@ -1207,22 +1234,7 @@ router.post("/api/yggdrasil/appendwagerresult.json", async (req, res) => {
         { new: true, projection: { wallet: 1 } }
       ).lean(),
 
-      SlotDCTGameYggDrasilModal.updateOne(
-        { betId: reference, tranId: subreference },
-        {
-          $set: {
-            settle: true,
-            settleamount: roundToTwoDecimals(amount),
-          },
-          $setOnInsert: {
-            bet: true,
-            betamount: 0,
-            username: playerid,
-            provider: "YGGDRASIL",
-          },
-        },
-        { upsert: true }
-      ),
+      updatePromise,
     ]);
 
     return res.status(200).json({
