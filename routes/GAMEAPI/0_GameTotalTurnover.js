@@ -87,7 +87,7 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
   try {
     const { userId } = req.params;
     const { startDate } = req.query;
-    const endDate = moment().format("YYYY-MM-DD HH:mm:ss");
+
     if (!startDate) {
       return res.status(400).json({
         success: false,
@@ -113,8 +113,11 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
 
     const username = user.username;
 
-    const start = moment(new Date(startDate)).utc().toDate();
-    const end = moment(new Date(endDate)).utc().toDate();
+    const start = moment
+      .tz(startDate, "YYYY-MM-DD HH:mm:ss", "Asia/Kuala_Lumpur")
+      .utc()
+      .toDate();
+    const end = moment.tz("Asia/Kuala_Lumpur").utc().toDate();
 
     const aggregations = {
       epicwin: {
