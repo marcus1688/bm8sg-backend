@@ -1275,11 +1275,16 @@ router.post("/api/yggdrasil/endwager.json", async (req, res) => {
       });
     }
 
-    const [currentUser, existingBet] = await Promise.all([
+    const [currentUser, existingBet, duplicateSettle] = await Promise.all([
       User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
+
       SlotDCTGameYggDrasilModal.findOne(
         { betId: reference },
-        { _id: 1, settle: 1, settleamount: 1 }
+        { _id: 1, settle: 1 }
+      ).lean(),
+      SlotDCTGameYggDrasilModal.findOne(
+        { betId: reference, endWagerId: subreference },
+        { _id: 1 }
       ).lean(),
     ]);
 
@@ -1303,7 +1308,7 @@ router.post("/api/yggdrasil/endwager.json", async (req, res) => {
       });
     }
 
-    if (existingBet.settle) {
+    if (duplicateSettle) {
       return res.status(200).json({
         code: 5043,
         msg: "Bet data existed",
@@ -1316,6 +1321,28 @@ router.post("/api/yggdrasil/endwager.json", async (req, res) => {
       });
     }
 
+    const updatePromise = existingBet.settle
+      ? SlotDCTGameYggDrasilModal.create({
+          username: playerid,
+          betId: reference,
+          endWagerId: subreference,
+          bet: true,
+          betamount: 0,
+          settle: true,
+          settleamount: roundToTwoDecimals(amount),
+          provider: "YGGDRASIL",
+        })
+      : SlotDCTGameYggDrasilModal.updateOne(
+          { betId: reference, settle: { $ne: true } },
+          {
+            $set: {
+              endWagerId: subreference,
+              settle: true,
+              settleamount: roundToTwoDecimals(amount),
+            },
+          }
+        );
+
     const [updatedUserBalance] = await Promise.all([
       User.findByIdAndUpdate(
         currentUser._id,
@@ -1323,15 +1350,7 @@ router.post("/api/yggdrasil/endwager.json", async (req, res) => {
         { new: true, projection: { wallet: 1 } }
       ).lean(),
 
-      SlotDCTGameYggDrasilModal.updateOne(
-        { betId: reference },
-        {
-          $set: {
-            settle: true,
-            settleamount: roundToTwoDecimals(amount),
-          },
-        }
-      ),
+      updatePromise,
     ]);
 
     return res.status(200).json({
@@ -1401,8 +1420,8 @@ router.post("/api/yggdrasil/campaignpayout.json", async (req, res) => {
 
     if (existingBet) {
       return res.status(200).json({
-        code: 5042,
-        msg: "Bet data is not existed",
+        code: 5043,
+        msg: "Bet data existed",
         data: {
           organization: org,
           playerId: playerid,
