@@ -2411,7 +2411,7 @@ const syncPussy888GameHistory = async () => {
 };
 
 if (process.env.NODE_ENV !== "development") {
-  cron.schedule("*/10 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     console.log("[Cron] Starting Pussy888 sync job");
     try {
       await syncPussy888GameHistory();
