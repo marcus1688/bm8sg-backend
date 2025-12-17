@@ -1278,7 +1278,7 @@ router.post("/api/yggdrasil/endwager.json", async (req, res) => {
     const [currentUser, existingBet] = await Promise.all([
       User.findOne({ gameId: playerid }, { wallet: 1, _id: 1 }).lean(),
       SlotDCTGameYggDrasilModal.findOne(
-        { betId: reference, tranId: subreference },
+        { betId: reference },
         { _id: 1, settle: 1, settleamount: 1 }
       ).lean(),
     ]);
@@ -1324,7 +1324,7 @@ router.post("/api/yggdrasil/endwager.json", async (req, res) => {
       ).lean(),
 
       SlotDCTGameYggDrasilModal.updateOne(
-        { betId: reference, tranId: subreference },
+        { betId: reference },
         {
           $set: {
             settle: true,
