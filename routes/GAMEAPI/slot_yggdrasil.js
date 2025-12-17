@@ -1412,10 +1412,12 @@ router.post("/api/yggdrasil/campaignpayout.json", async (req, res) => {
       });
     }
 
+    const toUpdateAmount = (cash || 0) + (bonus || 0);
+
     const [updatedUserBalance] = await Promise.all([
       User.findByIdAndUpdate(
         currentUser._id,
-        { $inc: { wallet: roundToTwoDecimals(cash || 0) } },
+        { $inc: { wallet: roundToTwoDecimals(toUpdateAmount) } },
         { new: true, projection: { wallet: 1 } }
       ).lean(),
 
@@ -1424,9 +1426,16 @@ router.post("/api/yggdrasil/campaignpayout.json", async (req, res) => {
         {
           $set: {
             settle: true,
-            settleamount: roundToTwoDecimals(cash),
+            settleamount: roundToTwoDecimals(toUpdateAmount),
           },
-        }
+          $setOnInsert: {
+            bet: true,
+            betamount: 0,
+            username: playerid,
+            provider: "YGGDRASIL",
+          },
+        },
+        { upsert: true }
       ),
     ]);
 
