@@ -871,15 +871,23 @@ router.get("/api/all/:userId/dailygamedata", async (req, res) => {
           : { turnover: 0, winLoss: 0 },
     };
     // Calculate total turnover and win loss
-    const totalTurnover = Object.values(results).reduce(
-      (sum, current) => sum + (current.turnover || 0),
-      0
-    );
+    const totalTurnover = Object.values(results).reduce((sum, current) => {
+      const turnover = current.turnover?.$numberDecimal
+        ? parseFloat(current.turnover.$numberDecimal)
+        : typeof current.turnover === "object" && current.turnover?.toString
+        ? parseFloat(current.turnover.toString())
+        : Number(current.turnover || 0);
+      return sum + turnover;
+    }, 0);
 
-    const totalWinLoss = Object.values(results).reduce(
-      (sum, current) => sum + (current.winLoss || 0),
-      0
-    );
+    const totalWinLoss = Object.values(results).reduce((sum, current) => {
+      const winLoss = current.winLoss?.$numberDecimal
+        ? parseFloat(current.winLoss.$numberDecimal)
+        : typeof current.winLoss === "object" && current.winLoss?.toString
+        ? parseFloat(current.winLoss.toString())
+        : Number(current.winLoss || 0);
+      return sum + winLoss;
+    }, 0);
 
     const executionTime = Date.now() - startTime;
 
