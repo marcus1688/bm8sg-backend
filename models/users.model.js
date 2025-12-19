@@ -306,10 +306,12 @@ const userSchema = new mongoose.Schema(
     gameLock: {
       epicwin: { type: gameLockSchema, default: () => ({}) },
       btgaming: { type: gameLockSchema, default: () => ({}) },
+      btgamingother: { type: gameLockSchema, default: () => ({}) },
       acewinslot: { type: gameLockSchema, default: () => ({}) },
       acewinfish: { type: gameLockSchema, default: () => ({}) },
-      yesgetrichfish: { type: gameLockSchema, default: () => ({}) },
       yesgetrichslot: { type: gameLockSchema, default: () => ({}) },
+      yesgetrichfish: { type: gameLockSchema, default: () => ({}) },
+      yesgetrichother: { type: gameLockSchema, default: () => ({}) },
       vpower: { type: gameLockSchema, default: () => ({}) },
       bng: { type: gameLockSchema, default: () => ({}) },
       tfgaming: { type: gameLockSchema, default: () => ({}) },
@@ -326,6 +328,7 @@ const userSchema = new mongoose.Schema(
       fastspinfish: { type: gameLockSchema, default: () => ({}) },
       fachaislot: { type: gameLockSchema, default: () => ({}) },
       fachaifish: { type: gameLockSchema, default: () => ({}) },
+      fachaiother: { type: gameLockSchema, default: () => ({}) },
       cq9slot: { type: gameLockSchema, default: () => ({}) },
       cq9fish: { type: gameLockSchema, default: () => ({}) },
       ppslot: { type: gameLockSchema, default: () => ({}) },
@@ -339,6 +342,8 @@ const userSchema = new mongoose.Schema(
       oncasino: { type: gameLockSchema, default: () => ({}) },
       cmd368: { type: gameLockSchema, default: () => ({}) },
       expansesstudio: { type: gameLockSchema, default: () => ({}) },
+      live22: { type: gameLockSchema, default: () => ({}) },
+      live22other: { type: gameLockSchema, default: () => ({}) },
     },
     gameStatus: {
       mega888: { type: gameStatusSchema, default: () => ({}) },
@@ -477,6 +482,9 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
     expansesStudioGameToken: {
+      type: String,
+    },
+    live22GameToken: {
       type: String,
     },
   },

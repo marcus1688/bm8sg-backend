@@ -1184,13 +1184,19 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
       console.log("Some game balance checks failed:", balanceFetchErrors);
     }
 
-    const totalWalletAmount =
-      Number(user.wallet || 0) - withdrawAmount + totalGameBalance;
-
     session = await mongoose.startSession();
     session.startTransaction();
 
     try {
+      const updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        { $inc: { wallet: -amount } },
+        { new: true, session, projection: { wallet: 1 } }
+      ).lean();
+
+      const totalWalletAmount =
+        Number(updatedUser.wallet || 0) + totalGameBalance;
+
       const newWithdrawal = new Withdraw({
         transactionId: transactionId,
         userId: userid,
@@ -1211,12 +1217,6 @@ router.post("/admin/api/withdraw", authenticateAdminToken, async (req, res) => {
         depositname: lastDepositName,
       });
       const savedWithdrawal = await newWithdrawal.save({ session });
-
-      await User.findByIdAndUpdate(
-        user._id,
-        { $inc: { wallet: -amount } },
-        { new: true, session }
-      );
 
       const walletLog = new UserWalletLog({
         userId: userid,

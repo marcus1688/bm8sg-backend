@@ -1,11 +1,8 @@
 const mongoose = require("mongoose");
 const moment = require("moment");
 
-const slotbtgamingschema = new mongoose.Schema(
+const slotlive22schema = new mongoose.Schema(
   {
-    uniqueStartId: {
-      type: String,
-    },
     betId: {
       type: String,
     },
@@ -51,11 +48,8 @@ const slotbtgamingschema = new mongoose.Schema(
   }
 );
 
-slotbtgamingschema.index({ createdAt: -1 }, { expireAfterSeconds: 172800 });
+slotlive22schema.index({ createdAt: -1 }, { expireAfterSeconds: 172800 });
 
-const SlotBTGamingModal = mongoose.model(
-  "SlotBTGamingModal",
-  slotbtgamingschema
-);
+const SlotLive22Modal = mongoose.model("SlotLive22Modal", slotlive22schema);
 
-module.exports = SlotBTGamingModal;
+module.exports = SlotLive22Modal;

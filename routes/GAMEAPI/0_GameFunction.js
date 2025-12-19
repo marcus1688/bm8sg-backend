@@ -49,6 +49,7 @@ const SlotDCTGameModal = require("../../models/slot_dctgame.model");
 const LiveOnCasinoModal = require("../../models/live_oncasino.model");
 const SportsCMD368UnlimitedModal = require("../../models/sport_cmdunlimited.model");
 const slotPussy888Modal = require("../../models/slot_pussy888.model");
+const SlotLive22Modal = require("../../models/slot_live22.model");
 
 require("dotenv").config();
 
@@ -117,6 +118,10 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
         name: "BT GAMING",
       },
       {
+        url: `${PUBLIC_APIURL}api/btgamingother/getturnoverforrebate`,
+        name: "BT GAMING",
+      },
+      {
         url: `${PUBLIC_APIURL}api/acewinslot/getturnoverforrebate`,
         name: "ACEWIN",
       },
@@ -130,6 +135,10 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
       },
       {
         url: `${PUBLIC_APIURL}api/yesgetrichfish/getturnoverforrebate`,
+        name: "YGR",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/yesgetrichother/getturnoverforrebate`,
         name: "YGR",
       },
       {
@@ -197,6 +206,10 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
         name: "FACHAI",
       },
       {
+        url: `${PUBLIC_APIURL}api/fachaiother/getturnoverforrebate`,
+        name: "FACHAI",
+      },
+      {
         url: `${PUBLIC_APIURL}api/cq9slot/getturnoverforrebate`,
         name: "CQ9",
       },
@@ -243,6 +256,14 @@ router.post("/admin/api/getAllTurnoverForRebate", async (req, res) => {
       {
         url: `${PUBLIC_APIURL}api/pussy888/getturnoverforrebate`,
         name: "PUSSY888",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/live22/getturnoverforrebate`,
+        name: "LIVE22",
+      },
+      {
+        url: `${PUBLIC_APIURL}api/live22other/getturnoverforrebate`,
+        name: "LIVE22",
       },
     ];
 
@@ -336,7 +357,11 @@ const GAME_CONFIG = [
     model: SlotBTGamingModal,
     name: "btgaming",
     category: CATEGORIES.SLOT,
-    match: { cancel: { $ne: true }, settle: true },
+    match: {
+      cancel: { $ne: true },
+      settle: true,
+      gametype: { $nin: ["ARCADE"] },
+    },
   },
   {
     model: SlotAceWinModal,
@@ -348,7 +373,11 @@ const GAME_CONFIG = [
     model: SlotYGRModal,
     name: "ygrSlot",
     category: CATEGORIES.SLOT,
-    match: { cancel: { $ne: true }, settle: true, gametype: { $ne: "FISH" } },
+    match: {
+      cancel: { $ne: true },
+      settle: true,
+      gametype: { $nin: ["FISH", "ARCADE"] },
+    },
   },
   {
     model: SlotVPowerModal,
@@ -387,10 +416,24 @@ const GAME_CONFIG = [
     match: { cancel: { $ne: true }, settle: true, gametype: { $ne: "FISH" } },
   },
   {
+    model: SlotLive22Modal,
+    name: "live22",
+    category: CATEGORIES.SLOT,
+    match: {
+      cancel: { $ne: true },
+      settle: true,
+      gametype: { $nin: ["ARCADE"] },
+    },
+  },
+  {
     model: SlotFachaiModal,
     name: "fachaiSlot",
     category: CATEGORIES.SLOT,
-    match: { cancel: { $ne: true }, settle: true, gametype: { $ne: "FISH" } },
+    match: {
+      cancel: { $ne: true },
+      settle: true,
+      gametype: { $nin: ["FISH", "ARCADE"] },
+    },
   },
   {
     model: SlotCQ9Modal,
