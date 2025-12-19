@@ -497,6 +497,8 @@ router.post("/api/fachai/launchGame", authenticateToken, async (req, res) => {
     const isLocked =
       gameType === "Fishing"
         ? user.gameLock?.fachaifish?.lock
+        : gameType === "Arcade"
+        ? user.gameLock?.fachaiother?.lock
         : user.gameLock?.fachaislot?.lock;
 
     if (isLocked) {
@@ -713,6 +715,7 @@ router.post("/api/fachai/betninfo", async (req, res) => {
           wallet: 1,
           "gameLock.fachaifish.lock": 1,
           "gameLock.fachaislot.lock": 1,
+          "gameLock.fachaiother.lock": 1,
           _id: 1,
         }
       ).lean(),
@@ -730,6 +733,8 @@ router.post("/api/fachai/betninfo", async (req, res) => {
     const isLocked =
       GameType === 1
         ? currentUser.gameLock?.fachaifish?.lock
+        : GameType === 7
+        ? currentUser.gameLock?.fachaiother?.lock
         : currentUser.gameLock?.fachaislot?.lock;
 
     if (isLocked) {
@@ -771,8 +776,8 @@ router.post("/api/fachai/betninfo", async (req, res) => {
         ErrorText: "Insufficient Balance",
       });
     }
-
-    const gameType = GameType === 1 ? "FISH" : "SLOT";
+    const gameType =
+      GameType === 1 ? "FISH" : GameType === 7 ? "ARCADE" : "SLOT";
 
     SlotFachaiModal.create({
       betId: BankID,
@@ -940,6 +945,7 @@ router.post("/api/fachai/bet", async (req, res) => {
           wallet: 1,
           "gameLock.fachaifish.lock": 1,
           "gameLock.fachaislot.lock": 1,
+          "gameLock.fachaiother.lock": 1,
         }
       ).lean(),
       SlotFachaiModal.findOne({ betId: BetID }, { _id: 1 }).lean(),
@@ -956,6 +962,8 @@ router.post("/api/fachai/bet", async (req, res) => {
     const isLocked =
       GameType === 1
         ? currentUser.gameLock?.fachaifish?.lock
+        : GameType === 7
+        ? currentUser.gameLock?.fachaiother?.lock
         : currentUser.gameLock?.fachaislot?.lock;
 
     if (isLocked) {
@@ -995,12 +1003,15 @@ router.post("/api/fachai/bet", async (req, res) => {
       });
     }
 
+    const gameType =
+      GameType === 1 ? "FISH" : GameType === 7 ? "ARCADE" : "SLOT";
+
     SlotFachaiModal.create({
       betId: BetID,
       username: MemberAccount,
       bet: true,
       betamount: roundToTwoDecimals(Bet),
-      gametype: "SLOT",
+      gametype: gameType,
     }).catch((error) => {
       console.error("Error creating transaction:", error.message);
     });
@@ -2007,4 +2018,365 @@ router.get(
   }
 );
 
+router.post("/api/fachaiother/getturnoverforrebate", async (req, res) => {
+  try {
+    const { date } = req.body;
+
+    let startDate, endDate;
+    if (date === "today") {
+      startDate = moment
+        .utc()
+        .add(8, "hours")
+        .startOf("day")
+        .subtract(8, "hours")
+        .toDate();
+      endDate = moment
+        .utc()
+        .add(8, "hours")
+        .endOf("day")
+        .subtract(8, "hours")
+        .toDate();
+    } else if (date === "yesterday") {
+      startDate = moment
+        .utc()
+        .add(8, "hours")
+        .subtract(1, "days")
+        .startOf("day")
+        .subtract(8, "hours")
+        .toDate();
+
+      endDate = moment
+        .utc()
+        .add(8, "hours")
+        .subtract(1, "days")
+        .endOf("day")
+        .subtract(8, "hours")
+        .toDate();
+    }
+
+    console.log("FACHAI ARCADE QUERYING TIME", startDate, endDate);
+
+    const records = await SlotFachaiModal.find({
+      createdAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+      gametype: "ARCADE",
+      cancel: { $ne: true },
+      settle: true,
+    });
+
+    const uniqueGameIds = [
+      ...new Set(records.map((record) => record.username)),
+    ];
+
+    const users = await User.find(
+      { gameId: { $in: uniqueGameIds } },
+      { gameId: 1, username: 1 }
+    ).lean();
+
+    const gameIdToUsername = {};
+    users.forEach((user) => {
+      gameIdToUsername[user.gameId] = user.username;
+    });
+
+    // Aggregate turnover and win/loss for each player
+    let playerSummary = {};
+
+    records.forEach((record) => {
+      const gameId = record.username;
+      const actualUsername = gameIdToUsername[gameId];
+
+      if (!actualUsername) {
+        console.warn(`FACHAI User not found for gameId: ${gameId}`);
+        return;
+      }
+
+      if (!playerSummary[actualUsername]) {
+        playerSummary[actualUsername] = { turnover: 0, winloss: 0 };
+      }
+
+      playerSummary[actualUsername].turnover += record.betamount || 0;
+
+      playerSummary[actualUsername].winloss +=
+        (record.settleamount || 0) - (record.betamount || 0);
+    });
+    Object.keys(playerSummary).forEach((playerId) => {
+      playerSummary[playerId].turnover = Number(
+        playerSummary[playerId].turnover.toFixed(2)
+      );
+      playerSummary[playerId].winloss = Number(
+        playerSummary[playerId].winloss.toFixed(2)
+      );
+    });
+    return res.status(200).json({
+      success: true,
+      summary: {
+        gamename: "FACHAI",
+        gamecategory: "Fast Games",
+        users: playerSummary,
+      },
+    });
+  } catch (error) {
+    console.log("FACHAI: Failed to fetch win/loss report:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: {
+        en: "FACHAI: Failed to fetch win/loss report",
+        zh: "FACHAI: 获取盈亏报告失败",
+      },
+    });
+  }
+});
+
+router.get(
+  "/admin/api/fachaiother/:userId/dailygamedata",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const userId = req.params.userId;
+
+      const user = await User.findById(userId);
+
+      const records = await SlotFachaiModal.find({
+        username: user.gameId,
+        createdAt: {
+          $gte: moment(new Date(startDate)).utc().toDate(),
+          $lte: moment(new Date(endDate)).utc().toDate(),
+        },
+        gametype: "ARCADE",
+        cancel: { $ne: true },
+        settle: true,
+      });
+
+      // Aggregate turnover and win/loss for each player
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        totalTurnover += record.betamount || 0;
+        totalWinLoss += (record.settleamount || 0) - (record.betamount || 0);
+      });
+
+      totalTurnover = Number(totalTurnover.toFixed(2));
+      totalWinLoss = Number(totalWinLoss.toFixed(2));
+      // Return the aggregated results
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "FACHAI",
+          gamecategory: "Fast Games",
+          user: {
+            username: user.username,
+            turnover: totalTurnover,
+            winloss: totalWinLoss,
+          },
+        },
+      });
+    } catch (error) {
+      console.log("FACHAI: Failed to fetch win/loss report:", error.message);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "FACHAI: Failed to fetch win/loss report",
+          zh: "FACHAI: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/fachaiother/:userId/gamedata",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const userId = req.params.userId;
+
+      const user = await User.findById(userId);
+
+      const records = await GameDataLog.find({
+        username: user.username,
+        date: {
+          $gte: moment(new Date(startDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+          $lte: moment(new Date(endDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+        },
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      // Sum up the values for EVOLUTION under Live Casino
+      records.forEach((record) => {
+        // Convert Mongoose Map to Plain Object
+        const gameCategories =
+          record.gameCategories instanceof Map
+            ? Object.fromEntries(record.gameCategories)
+            : record.gameCategories;
+
+        if (
+          gameCategories &&
+          gameCategories["Fast Games"] &&
+          gameCategories["Fast Games"] instanceof Map
+        ) {
+          const gameCat = Object.fromEntries(gameCategories["Fast Games"]);
+
+          if (gameCat["FACHAI"]) {
+            totalTurnover += gameCat["FACHAI"].turnover || 0;
+            totalWinLoss += gameCat["FACHAI"].winloss || 0;
+          }
+        }
+      });
+
+      // Format the total values to two decimal places
+      totalTurnover = Number(totalTurnover.toFixed(2));
+      totalWinLoss = Number(totalWinLoss.toFixed(2));
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "FACHAI",
+          gamecategory: "Fast Games",
+          user: {
+            username: user.username,
+            turnover: totalTurnover,
+            winloss: totalWinLoss,
+          },
+        },
+      });
+    } catch (error) {
+      console.log("FACHAI: Failed to fetch win/loss report:", error.message);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "FACHAI: Failed to fetch win/loss report",
+          zh: "FACHAI: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/fachaiother/dailykioskreport",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const records = await SlotFachaiModal.find({
+        createdAt: {
+          $gte: moment(new Date(startDate)).utc().toDate(),
+          $lte: moment(new Date(endDate)).utc().toDate(),
+        },
+        gametype: "ARCADE",
+        cancel: { $ne: true },
+        settle: true,
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        totalTurnover += record.betamount || 0;
+
+        totalWinLoss += (record.betamount || 0) - (record.settleamount || 0);
+      });
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "FACHAI",
+          gamecategory: "Fast Games",
+          totalturnover: Number(totalTurnover.toFixed(2)),
+          totalwinloss: Number(totalWinLoss.toFixed(2)),
+        },
+      });
+    } catch (error) {
+      console.error("FACHAI: Failed to fetch win/loss report:", error);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "FACHAI: Failed to fetch win/loss report",
+          zh: "FACHAI: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/fachaiother/kioskreport",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const records = await GameDataLog.find({
+        date: {
+          $gte: moment(new Date(startDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+          $lte: moment(new Date(endDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+        },
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        const gameCategories =
+          record.gameCategories instanceof Map
+            ? Object.fromEntries(record.gameCategories)
+            : record.gameCategories;
+
+        if (
+          gameCategories &&
+          gameCategories["Fast Games"] &&
+          gameCategories["Fast Games"] instanceof Map
+        ) {
+          const gameCat = Object.fromEntries(gameCategories["Fast Games"]);
+
+          if (gameCat["FACHAI"]) {
+            totalTurnover += Number(gameCat["FACHAI"].turnover || 0);
+            totalWinLoss += Number(gameCat["FACHAI"].winloss || 0) * -1;
+          }
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "FACHAI",
+          gamecategory: "Fast Games",
+          totalturnover: Number(totalTurnover.toFixed(2)),
+          totalwinloss: Number(totalWinLoss.toFixed(2)),
+        },
+      });
+    } catch (error) {
+      console.error("FACHAI: Failed to fetch win/loss report:", error);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "FACHAI: Failed to fetch win/loss report",
+          zh: "FACHAI: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
 module.exports = router;

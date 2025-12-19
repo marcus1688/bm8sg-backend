@@ -519,6 +519,8 @@ router.post("/api/btgaming/launchGame", authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     const user = await User.findById(userId);
 
+    const { gameLang, gameCode, gameType } = req.body;
+
     if (!user) {
       return res.status(200).json({
         success: false,
@@ -532,7 +534,12 @@ router.post("/api/btgaming/launchGame", authenticateToken, async (req, res) => {
       });
     }
 
-    if (user.gameLock.btgaming.lock) {
+    const isLocked =
+      gameType === "Arcade"
+        ? user.gameLock?.btgamingother?.lock
+        : user.gameLock?.btgaming?.lock;
+
+    if (isLocked) {
       return res.status(200).json({
         success: false,
         message: {
@@ -544,8 +551,6 @@ router.post("/api/btgaming/launchGame", authenticateToken, async (req, res) => {
         },
       });
     }
-
-    const { gameLang, gameCode } = req.body;
 
     let lang = "en";
 
@@ -741,6 +746,7 @@ router.post("/api/directbtgprod/transfer", async (req, res) => {
       amount,
       transfer_type,
       betform_details,
+      game_type,
       currency,
     } = req.body;
     const trans_details = JSON.parse(req.body.trans_details);
@@ -778,6 +784,7 @@ router.post("/api/directbtgprod/transfer", async (req, res) => {
         {
           wallet: 1,
           "gameLock.btgaming.lock": 1,
+          "gameLock.btgamingother.lock": 1,
           _id: 1,
           username: 1,
         }
@@ -815,7 +822,9 @@ router.post("/api/directbtgprod/transfer", async (req, res) => {
         });
       }
 
-      if (currentUser.gameLock?.btgaming?.lock) {
+      const lockKey = game_type === "arcade" ? "btgamingother" : "btgaming";
+
+      if (currentUser.gameLock?.[lockKey]?.lock) {
         return res.status(200).json({
           status: {
             code: 5103,
@@ -879,6 +888,8 @@ router.post("/api/directbtgprod/transfer", async (req, res) => {
         });
       }
 
+      const gametype = game_type === "arcade" ? "ARCADE" : "SLOT";
+
       await SlotBTGamingModal.create({
         username,
         betId: trans_details.round_id,
@@ -886,6 +897,7 @@ router.post("/api/directbtgprod/transfer", async (req, res) => {
         bet: true,
         betamount: Math.abs(inData),
         uniqueStartId: tran_id,
+        gametype,
       });
 
       // Return success response
@@ -1107,6 +1119,7 @@ router.post("/api/btgaming/getturnoverforrebate", async (req, res) => {
         $lt: endDate,
       },
       cancel: { $ne: true },
+      gametype: "SLOT",
       settle: true,
     });
 
@@ -1192,7 +1205,7 @@ router.get(
           $lte: moment(new Date(endDate)).utc().toDate(),
         },
         cancel: { $ne: true },
-
+        gametype: "SLOT",
         settle: true,
       });
 
@@ -1325,6 +1338,7 @@ router.get(
           $lte: moment(new Date(endDate)).utc().toDate(),
         },
         cancel: { $ne: true },
+        gametype: "SLOT",
         settle: true,
       });
 
@@ -1407,6 +1421,370 @@ router.get(
         summary: {
           gamename: "BT GAMING",
           gamecategory: "Slot Games",
+          totalturnover: Number(totalTurnover.toFixed(2)),
+          totalwinloss: Number(totalWinLoss.toFixed(2)),
+        },
+      });
+    } catch (error) {
+      console.error("BT GAMING: Failed to fetch win/loss report:", error);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "BT GAMING: Failed to fetch win/loss report",
+          zh: "BT GAMING: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.post("/api/btgamingother/getturnoverforrebate", async (req, res) => {
+  try {
+    const { date } = req.body;
+
+    let startDate, endDate;
+    if (date === "today") {
+      startDate = moment
+        .utc()
+        .add(8, "hours")
+        .startOf("day")
+        .subtract(8, "hours")
+        .toDate();
+      endDate = moment
+        .utc()
+        .add(8, "hours")
+        .endOf("day")
+        .subtract(8, "hours")
+        .toDate();
+    } else if (date === "yesterday") {
+      startDate = moment
+        .utc()
+        .add(8, "hours")
+        .subtract(1, "days")
+        .startOf("day")
+        .subtract(8, "hours")
+        .toDate();
+
+      endDate = moment
+        .utc()
+        .add(8, "hours")
+        .subtract(1, "days")
+        .endOf("day")
+        .subtract(8, "hours")
+        .toDate();
+    }
+
+    console.log("BT GAMING OTHER QUERYING TIME", startDate, endDate);
+
+    const records = await SlotBTGamingModal.find({
+      createdAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+
+      cancel: { $ne: true },
+      gametype: "ARCADE",
+      settle: true,
+    });
+
+    const uniqueGameIds = [
+      ...new Set(records.map((record) => record.username)),
+    ];
+
+    const users = await User.find(
+      { gameId: { $in: uniqueGameIds } },
+      { gameId: 1, username: 1 }
+    ).lean();
+
+    const gameIdToUsername = {};
+    users.forEach((user) => {
+      gameIdToUsername[user.gameId] = user.username;
+    });
+
+    let playerSummary = {};
+
+    records.forEach((record) => {
+      const gameId = record.username;
+      const actualUsername = gameIdToUsername[gameId];
+
+      if (!actualUsername) {
+        console.warn(`BT GAMING User not found for gameId: ${gameId}`);
+        return;
+      }
+
+      if (!playerSummary[actualUsername]) {
+        playerSummary[actualUsername] = { turnover: 0, winloss: 0 };
+      }
+
+      playerSummary[actualUsername].turnover += record.betamount || 0;
+
+      playerSummary[actualUsername].winloss +=
+        (record.settleamount || 0) - (record.betamount || 0);
+    });
+    // Format the turnover and win/loss for each player to two decimal places
+    Object.keys(playerSummary).forEach((playerId) => {
+      playerSummary[playerId].turnover = Number(
+        playerSummary[playerId].turnover.toFixed(2)
+      );
+      playerSummary[playerId].winloss = Number(
+        playerSummary[playerId].winloss.toFixed(2)
+      );
+    });
+    // Return the aggregated results
+    return res.status(200).json({
+      success: true,
+      summary: {
+        gamename: "BT GAMING",
+        gamecategory: "Fast Games",
+        users: playerSummary,
+      },
+    });
+  } catch (error) {
+    console.log("BT GAMING: Failed to fetch win/loss report:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: {
+        en: "BT GAMING: Failed to fetch win/loss report",
+        zh: "BT GAMING: 获取盈亏报告失败",
+      },
+    });
+  }
+});
+
+router.get(
+  "/admin/api/btgamingother/:userId/dailygamedata",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const userId = req.params.userId;
+
+      const user = await User.findById(userId);
+
+      const records = await SlotBTGamingModal.find({
+        username: user.gameId,
+        createdAt: {
+          $gte: moment(new Date(startDate)).utc().toDate(),
+          $lte: moment(new Date(endDate)).utc().toDate(),
+        },
+        cancel: { $ne: true },
+        gametype: "ARCADE",
+        settle: true,
+      });
+
+      // Aggregate turnover and win/loss for each player
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        totalTurnover += record.betamount || 0;
+        totalWinLoss += (record.settleamount || 0) - (record.betamount || 0);
+      });
+
+      totalTurnover = Number(totalTurnover.toFixed(2));
+      totalWinLoss = Number(totalWinLoss.toFixed(2));
+      // Return the aggregated results
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "BT GAMING",
+          gamecategory: "Fast Games",
+          user: {
+            username: user.username,
+            turnover: totalTurnover,
+            winloss: totalWinLoss,
+          },
+        },
+      });
+    } catch (error) {
+      console.log("BT GAMING: Failed to fetch win/loss report:", error.message);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "BT GAMING: Failed to fetch win/loss report",
+          zh: "BT GAMING: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/btgamingother/:userId/gamedata",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const userId = req.params.userId;
+
+      const user = await User.findById(userId);
+
+      const records = await GameDataLog.find({
+        username: user.username,
+        date: {
+          $gte: moment(new Date(startDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+          $lte: moment(new Date(endDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+        },
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      // Sum up the values for EVOLUTION under Live Casino
+      records.forEach((record) => {
+        // Convert Mongoose Map to Plain Object
+        const gameCategories =
+          record.gameCategories instanceof Map
+            ? Object.fromEntries(record.gameCategories)
+            : record.gameCategories;
+
+        if (
+          gameCategories &&
+          gameCategories["Fast Games"] &&
+          gameCategories["Fast Games"] instanceof Map
+        ) {
+          const slotGames = Object.fromEntries(gameCategories["Fast Games"]);
+
+          if (slotGames["BT GAMING"]) {
+            totalTurnover += slotGames["BT GAMING"].turnover || 0;
+            totalWinLoss += slotGames["BT GAMING"].winloss || 0;
+          }
+        }
+      });
+
+      // Format the total values to two decimal places
+      totalTurnover = Number(totalTurnover.toFixed(2));
+      totalWinLoss = Number(totalWinLoss.toFixed(2));
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "BT GAMING",
+          gamecategory: "Fast Games",
+          user: {
+            username: user.username,
+            turnover: totalTurnover,
+            winloss: totalWinLoss,
+          },
+        },
+      });
+    } catch (error) {
+      console.log("BT GAMING: Failed to fetch win/loss report:", error.message);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "BT GAMING: Failed to fetch win/loss report",
+          zh: "BT GAMING: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/btgamingother/dailykioskreport",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const records = await SlotBTGamingModal.find({
+        createdAt: {
+          $gte: moment(new Date(startDate)).utc().toDate(),
+          $lte: moment(new Date(endDate)).utc().toDate(),
+        },
+        cancel: { $ne: true },
+        gametype: "ARCADE",
+        settle: true,
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        totalTurnover += record.betamount || 0;
+
+        totalWinLoss += (record.betamount || 0) - (record.settleamount || 0);
+      });
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "BT GAMING",
+          gamecategory: "Fast Games",
+          totalturnover: Number(totalTurnover.toFixed(2)),
+          totalwinloss: Number(totalWinLoss.toFixed(2)),
+        },
+      });
+    } catch (error) {
+      console.error("BT GAMING: Failed to fetch win/loss report:", error);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "BT GAMING: Failed to fetch win/loss report",
+          zh: "BT GAMING: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/btgamingother/kioskreport",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const records = await GameDataLog.find({
+        date: {
+          $gte: moment(new Date(startDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+          $lte: moment(new Date(endDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+        },
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        const gameCategories =
+          record.gameCategories instanceof Map
+            ? Object.fromEntries(record.gameCategories)
+            : record.gameCategories;
+
+        if (
+          gameCategories &&
+          gameCategories["Fast Games"] &&
+          gameCategories["Fast Games"] instanceof Map
+        ) {
+          const liveCasino = Object.fromEntries(gameCategories["Fast Games"]);
+
+          if (liveCasino["BT GAMING"]) {
+            totalTurnover += Number(liveCasino["BT GAMING"].turnover || 0);
+            totalWinLoss += Number(liveCasino["BT GAMING"].winloss || 0) * -1;
+          }
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "BT GAMING",
+          gamecategory: "Fast Games",
           totalturnover: Number(totalTurnover.toFixed(2)),
           totalwinloss: Number(totalWinLoss.toFixed(2)),
         },

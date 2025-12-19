@@ -60,6 +60,7 @@ const SlotIBEXModal = require("../models/slot_ibex.model");
 const SlotDCTGameModal = require("../models/slot_dctgame.model");
 const LiveOnCasinoModal = require("../models/live_oncasino.model");
 const slotPussy888Modal = require("../models/slot_pussy888.model");
+const SlotLive22Modal = require("../models/slot_live22.model");
 
 const EsportTfGamingModal = require("../models/esport_tfgaming.model");
 
@@ -6306,6 +6307,11 @@ router.get(
             },
             "betTime"
           ),
+
+          getAllUsersTurnover(SlotLive22Modal, {
+            cancel: { $ne: true },
+            settle: true,
+          }),
         ];
 
         const todayGameResults = await Promise.allSettled(todayGamePromises);

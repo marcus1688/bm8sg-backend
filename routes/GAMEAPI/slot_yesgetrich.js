@@ -577,6 +577,8 @@ router.post(
       const isLocked =
         gameType === "Fishing"
           ? user.gameLock?.yesgetrichfish?.lock
+          : gameType === "Arcade"
+          ? user.gameLock?.yesgetrichother?.lock
           : user.gameLock?.yesgetrichslot?.lock;
 
       if (isLocked) {
@@ -990,19 +992,24 @@ router.post("/api/yesgetrich/transaction/addGameResult", async (req, res) => {
       });
     }
 
-    const [gameId] = connectToken.split(":");
+    const [gameId, gameCode] = connectToken.split(":");
 
-    const [currentUser, existingTransaction] = await Promise.all([
+    const [currentUser, existingTransaction, currentGame] = await Promise.all([
       User.findOne(
         { gameId: gameId },
         {
           wallet: 1,
           "gameLock.yesgetrichslot.lock": 1,
+          "gameLock.yesgetrichother.lock": 1,
           ygrGameTokens: 1,
           _id: 1,
         }
       ).lean(),
       SlotYGRModal.findOne({ tranId: transID }, { _id: 1 }).lean(),
+      GameYGRGameModal.findOne(
+        { gameID: gameCode },
+        { _id: 1, gameType: 1 }
+      ).lean(),
     ]);
 
     if (!currentUser) {
@@ -1021,7 +1028,11 @@ router.post("/api/yesgetrich/transaction/addGameResult", async (req, res) => {
       (t) => t.token === connectToken
     );
 
-    if (currentUser.gameLock?.yesgetrichslot?.lock || !validToken) {
+    const gameType = currentGame?.gameType?.toUpperCase() || "SLOT";
+    const lockKey =
+      gameType === "ARCADE" ? "yesgetrichother" : "yesgetrichslot";
+
+    if (currentUser.gameLock?.[lockKey]?.lock || !validToken) {
       return res.status(200).json({
         data: null,
         status: {
@@ -1074,7 +1085,7 @@ router.post("/api/yesgetrich/transaction/addGameResult", async (req, res) => {
       username: gameId,
       betamount: roundToTwoDecimals(betAmount),
       settleamount: roundToTwoDecimals(payoutAmount),
-      gametype: "SLOT",
+      gametype: gameType,
       currentConnectToken: connectToken,
     });
 
@@ -2326,4 +2337,367 @@ router.get(
   }
 );
 
+router.post("/api/yesgetrichother/getturnoverforrebate", async (req, res) => {
+  try {
+    const { date } = req.body;
+
+    let startDate, endDate;
+    if (date === "today") {
+      startDate = moment
+        .utc()
+        .add(8, "hours")
+        .startOf("day")
+        .subtract(8, "hours")
+        .toDate();
+      endDate = moment
+        .utc()
+        .add(8, "hours")
+        .endOf("day")
+        .subtract(8, "hours")
+        .toDate();
+    } else if (date === "yesterday") {
+      startDate = moment
+        .utc()
+        .add(8, "hours")
+        .subtract(1, "days")
+        .startOf("day")
+        .subtract(8, "hours")
+        .toDate();
+
+      endDate = moment
+        .utc()
+        .add(8, "hours")
+        .subtract(1, "days")
+        .endOf("day")
+        .subtract(8, "hours")
+        .toDate();
+    }
+
+    console.log("YGR QUERYING TIME", startDate, endDate);
+
+    const records = await SlotYGRModal.find({
+      createdAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+      cancel: { $ne: true },
+      settle: true,
+      gametype: "ARCADE",
+    });
+
+    const uniqueGameIds = [
+      ...new Set(records.map((record) => record.username)),
+    ];
+
+    const users = await User.find(
+      { gameId: { $in: uniqueGameIds } },
+      { gameId: 1, username: 1 }
+    ).lean();
+
+    const gameIdToUsername = {};
+    users.forEach((user) => {
+      gameIdToUsername[user.gameId] = user.username;
+    });
+
+    let playerSummary = {};
+
+    records.forEach((record) => {
+      const gameId = record.username;
+      const actualUsername = gameIdToUsername[gameId];
+
+      if (!actualUsername) {
+        console.warn(`YGR User not found for gameId: ${gameId}`);
+        return;
+      }
+
+      if (!playerSummary[actualUsername]) {
+        playerSummary[actualUsername] = { turnover: 0, winloss: 0 };
+      }
+
+      playerSummary[actualUsername].turnover += record.betamount || 0;
+
+      playerSummary[actualUsername].winloss +=
+        (record.settleamount || 0) - (record.betamount || 0);
+    });
+    // Format the turnover and win/loss for each player to two decimal places
+    Object.keys(playerSummary).forEach((playerId) => {
+      playerSummary[playerId].turnover = Number(
+        playerSummary[playerId].turnover.toFixed(2)
+      );
+      playerSummary[playerId].winloss = Number(
+        playerSummary[playerId].winloss.toFixed(2)
+      );
+    });
+    // Return the aggregated results
+    return res.status(200).json({
+      success: true,
+      summary: {
+        gamename: "YGR",
+        gamecategory: "Fast Games",
+        users: playerSummary,
+      },
+    });
+  } catch (error) {
+    console.log("YGR: Failed to fetch win/loss report:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: {
+        en: "YGR: Failed to fetch win/loss report",
+        zh: "YGR: 获取盈亏报告失败",
+      },
+    });
+  }
+});
+
+router.get(
+  "/admin/api/yesgetrichother/:userId/dailygamedata",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const userId = req.params.userId;
+
+      const user = await User.findById(userId);
+
+      const records = await SlotYGRModal.find({
+        username: user.gameId,
+        createdAt: {
+          $gte: moment(new Date(startDate)).utc().toDate(),
+          $lte: moment(new Date(endDate)).utc().toDate(),
+        },
+        cancel: { $ne: true },
+
+        settle: true,
+        gametype: "ARCADE",
+      });
+
+      // Aggregate turnover and win/loss for each player
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        totalTurnover += record.betamount || 0;
+        totalWinLoss += (record.settleamount || 0) - (record.betamount || 0);
+      });
+
+      totalTurnover = Number(totalTurnover.toFixed(2));
+      totalWinLoss = Number(totalWinLoss.toFixed(2));
+      // Return the aggregated results
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "YGR",
+          gamecategory: "Fast Games",
+          user: {
+            username: user.username,
+            turnover: totalTurnover,
+            winloss: totalWinLoss,
+          },
+        },
+      });
+    } catch (error) {
+      console.log("YGR: Failed to fetch win/loss report:", error.message);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "YGR: Failed to fetch win/loss report",
+          zh: "YGR: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/yesgetrichother/:userId/gamedata",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const userId = req.params.userId;
+
+      const user = await User.findById(userId);
+
+      const records = await GameDataLog.find({
+        username: user.username,
+        date: {
+          $gte: moment(new Date(startDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+          $lte: moment(new Date(endDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+        },
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      // Sum up the values for EVOLUTION under Live Casino
+      records.forEach((record) => {
+        // Convert Mongoose Map to Plain Object
+        const gameCategories =
+          record.gameCategories instanceof Map
+            ? Object.fromEntries(record.gameCategories)
+            : record.gameCategories;
+
+        if (
+          gameCategories &&
+          gameCategories["Fast Games"] &&
+          gameCategories["Fast Games"] instanceof Map
+        ) {
+          const slotGames = Object.fromEntries(gameCategories["Fast Games"]);
+
+          if (slotGames["YGR"]) {
+            totalTurnover += slotGames["YGR"].turnover || 0;
+            totalWinLoss += slotGames["YGR"].winloss || 0;
+          }
+        }
+      });
+
+      // Format the total values to two decimal places
+      totalTurnover = Number(totalTurnover.toFixed(2));
+      totalWinLoss = Number(totalWinLoss.toFixed(2));
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "YGR",
+          gamecategory: "Fast Games",
+          user: {
+            username: user.username,
+            turnover: totalTurnover,
+            winloss: totalWinLoss,
+          },
+        },
+      });
+    } catch (error) {
+      console.log("YGR: Failed to fetch win/loss report:", error.message);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "YGR: Failed to fetch win/loss report",
+          zh: "YGR: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/yesgetrichother/dailykioskreport",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const records = await SlotYGRModal.find({
+        createdAt: {
+          $gte: moment(new Date(startDate)).utc().toDate(),
+          $lte: moment(new Date(endDate)).utc().toDate(),
+        },
+        cancel: { $ne: true },
+        settle: true,
+        gametype: "ARCADE",
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        totalTurnover += record.betamount || 0;
+
+        totalWinLoss += (record.betamount || 0) - (record.settleamount || 0);
+      });
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "YGR",
+          gamecategory: "Fast Games",
+          totalturnover: Number(totalTurnover.toFixed(2)),
+          totalwinloss: Number(totalWinLoss.toFixed(2)),
+        },
+      });
+    } catch (error) {
+      console.error("YGR: Failed to fetch win/loss report:", error);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "YGR: Failed to fetch win/loss report",
+          zh: "YGR: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
+
+router.get(
+  "/admin/api/yesgetrichother/kioskreport",
+  authenticateAdminToken,
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      const records = await GameDataLog.find({
+        date: {
+          $gte: moment(new Date(startDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+          $lte: moment(new Date(endDate))
+            .utc()
+            .add(8, "hours")
+            .format("YYYY-MM-DD"),
+        },
+      });
+
+      let totalTurnover = 0;
+      let totalWinLoss = 0;
+
+      records.forEach((record) => {
+        const gameCategories =
+          record.gameCategories instanceof Map
+            ? Object.fromEntries(record.gameCategories)
+            : record.gameCategories;
+
+        if (
+          gameCategories &&
+          gameCategories["Fast Games"] &&
+          gameCategories["Fast Games"] instanceof Map
+        ) {
+          const liveCasino = Object.fromEntries(gameCategories["Fast Games"]);
+
+          if (liveCasino["YGR"]) {
+            totalTurnover += Number(liveCasino["YGR"].turnover || 0);
+            totalWinLoss += Number(liveCasino["YGR"].winloss || 0) * -1;
+          }
+        }
+      });
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          gamename: "YGR",
+          gamecategory: "Fast Games",
+          totalturnover: Number(totalTurnover.toFixed(2)),
+          totalwinloss: Number(totalWinLoss.toFixed(2)),
+        },
+      });
+    } catch (error) {
+      console.error("YGR: Failed to fetch win/loss report:", error);
+      return res.status(500).json({
+        success: false,
+        message: {
+          en: "YGR: Failed to fetch win/loss report",
+          zh: "YGR: 获取盈亏报告失败",
+        },
+      });
+    }
+  }
+);
 module.exports = router;
