@@ -2317,8 +2317,7 @@ async function checkAndUpdateVIPLevel(userId) {
         }
       }
 
-      user.viplevel = newLevel;
-      await user.save();
+      await User.findByIdAndUpdate(userId, { $set: { viplevel: newLevel } });
 
       return {
         success: true,
