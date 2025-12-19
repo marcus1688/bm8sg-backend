@@ -699,6 +699,7 @@ router.post("/api/live22sg/Bet", async (req, res) => {
         NewBalance: 0,
       });
     }
+    console.log(GameType, "liove22");
 
     const tokenParts = AuthToken.split(":");
 
