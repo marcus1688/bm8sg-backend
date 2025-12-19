@@ -1256,7 +1256,7 @@ router.post("/api/live22sg/BetNSettle", async (req, res) => {
       ResultId,
       GameType,
     } = req.body;
-
+    console.log(GameType, "liove22");
     if (
       !OperatorId ||
       !Signature ||
