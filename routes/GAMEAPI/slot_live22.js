@@ -699,7 +699,6 @@ router.post("/api/live22sg/Bet", async (req, res) => {
         NewBalance: 0,
       });
     }
-    console.log(GameType, "liove22");
 
     const tokenParts = AuthToken.split(":");
 
@@ -731,7 +730,7 @@ router.post("/api/live22sg/Bet", async (req, res) => {
       });
     }
 
-    const isArcade = GameType === "Arcade" || GameType === "Mini Game";
+    const isArcade = GameType === "Arcade" || GameType === "Mini";
     const gametype = isArcade ? "ARCADE" : "SLOT";
 
     if (currentUser.gameLock?.[isArcade ? "live22other" : "live22"]?.lock) {
@@ -1256,7 +1255,7 @@ router.post("/api/live22sg/BetNSettle", async (req, res) => {
       ResultId,
       GameType,
     } = req.body;
-    console.log(GameType, "liove22");
+
     if (
       !OperatorId ||
       !Signature ||
@@ -1330,7 +1329,7 @@ router.post("/api/live22sg/BetNSettle", async (req, res) => {
       });
     }
 
-    const isArcade = GameType === "Arcade" || GameType === "Mini Game";
+    const isArcade = GameType === "Arcade" || GameType === "Mini";
     const gametype = isArcade ? "ARCADE" : "SLOT";
 
     if (currentUser.gameLock?.[isArcade ? "live22other" : "live22"]?.lock) {
