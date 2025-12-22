@@ -1596,7 +1596,7 @@ router.post(
         page = 1,
         limit = 50,
         providers,
-        category,
+        categories,
       } = req.body;
 
       // Validate dates
@@ -1651,11 +1651,16 @@ router.post(
         );
       }
 
-      if (category) {
-        const categoryLower = category.toLowerCase();
-        filteredProviders = filteredProviders.filter(
-          (p) => p.category === categoryLower
-        );
+      if (categories && Array.isArray(categories) && categories.length > 0) {
+        const categoriesLower = categories.map((c) => c.toLowerCase());
+        filteredProviders = filteredProviders.filter((p) => {
+          if (Array.isArray(p.categories)) {
+            return p.categories.some((c) =>
+              categoriesLower.includes(c.toLowerCase())
+            );
+          }
+          return categoriesLower.includes(p.category.toLowerCase());
+        });
       }
 
       if (filteredProviders.length === 0) {
@@ -1684,12 +1689,32 @@ router.post(
 
       // Use aggregation for better performance
       const aggregationPipeline = filteredProviders.map(
-        ({ displayName, category, model, usernameField }) => {
+        ({ displayName, category, categories, model, usernameField }) => {
+          const sortDateField =
+            dateField === "settleTime" ? "$settleTime" : "$betTime";
+
+          const useDbCategory = Array.isArray(categories);
+
+          let categoryMatch = {};
+          if (
+            useDbCategory &&
+            req.body.categories &&
+            Array.isArray(req.body.categories) &&
+            req.body.categories.length > 0
+          ) {
+            const selectedCategories = req.body.categories.map(
+              (c) => new RegExp(`^${c}$`, "i")
+            );
+            categoryMatch = { category: { $in: selectedCategories } };
+          }
+
           return model.aggregate([
             {
               $match: {
                 username: usernameField,
                 betTime: { $gte: start, $lte: end },
+                ...extraMatch,
+                ...categoryMatch,
               },
             },
             {
@@ -1704,7 +1729,7 @@ router.post(
                 username: 1,
                 betTime: 1,
                 provider: { $literal: displayName },
-                category: { $literal: category },
+                ...(useDbCategory ? {} : { category: category }),
               },
             },
           ]);
