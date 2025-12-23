@@ -14,12 +14,18 @@ const { adminUser, adminLog } = require("../../models/adminuser.model");
 const GameWalletLog = require("../../models/gamewalletlog.model");
 const Decimal = require("decimal.js");
 const LiveYeebetModal = require("../../models/live_yeebet.model");
+const GameSyncLog = require("../../models/game_syncdata.model");
+const GameGeneralDetailDataModal = require("../../models/gameDetail.model");
+const {
+  processYeebetBetHistory,
+} = require("../../services/unifiedLiveCasinoData");
 
 require("dotenv").config();
 
 const webURL = "https://www.bm8sg.vip/";
 const yeebetAPIURL = "https://api.yeebet.vip";
 const yeebetSecret = process.env.YEEBET_SECRET;
+const yeebetCallbackSecret = process.env.YEEBET_CALLBACKSECRET;
 const yeebetAppID = "EGM8SGD";
 const yeebetLaunchAppID = "xtdRSQEGZ4V9";
 
@@ -145,9 +151,11 @@ router.post("/api/yeebet/launchGame", authenticateToken, async (req, res) => {
       currency: "SGD",
       returnurl: webURL,
     };
+
     const sign = generateSignature(params, yeebetSecret);
 
     const fullParams = { ...params, sign };
+
     const query = new URLSearchParams(fullParams).toString();
     const response = await axios.post(`${yeebetAPIURL}/api/login?${query}`, {
       headers: {
@@ -221,9 +229,11 @@ router.get("/api/yeebet/balance", async (req, res) => {
       });
     }
     const paramsForSign = { ...req.query };
-    console.log(req.query);
     delete paramsForSign.sign;
-    const generatedSign = generateSignature(paramsForSign, yeebetSecret);
+    const generatedSign = generateSignature(
+      paramsForSign,
+      yeebetCallbackSecret
+    );
 
     if (sign !== generatedSign) {
       console.log("failed 1");
@@ -252,7 +262,7 @@ router.get("/api/yeebet/balance", async (req, res) => {
     });
   } catch (error) {
     console.error(
-      "YEEBET: Error in game provider calling pw66 getbalance api:",
+      "YEEBET: Error in game provider calling  getbalance api:",
       error.message
     );
     return res.status(200).json({
@@ -262,7 +272,7 @@ router.get("/api/yeebet/balance", async (req, res) => {
   }
 });
 
-router.post("/api/yeebet/withdraw", async (req, res) => {
+router.post("/api/yeebet/deduct", async (req, res) => {
   try {
     const {
       appid,
@@ -285,6 +295,7 @@ router.post("/api/yeebet/withdraw", async (req, res) => {
       amount === undefined ||
       amount === null
     ) {
+      console.log("failed 1");
       return res.status(200).json({
         result: -1002,
         desc: "参数错误，请检查所传参数",
@@ -292,6 +303,7 @@ router.post("/api/yeebet/withdraw", async (req, res) => {
     }
 
     if (appid !== yeebetAppID) {
+      console.log("failed 2");
       return res.status(200).json({
         result: -1005,
         desc: "Appid错误",
@@ -302,9 +314,13 @@ router.post("/api/yeebet/withdraw", async (req, res) => {
     delete paramsForSign.sign;
     delete paramsForSign.bets;
 
-    const generatedSign = generateSignature(paramsForSign, yeebetSecret);
+    const generatedSign = generateSignature(
+      paramsForSign,
+      yeebetCallbackSecret
+    );
 
     if (sign !== generatedSign) {
+      console.log("failed 3");
       return res.status(200).json({
         result: -1007,
         desc: "签名错误，请检查签名",
@@ -325,6 +341,7 @@ router.post("/api/yeebet/withdraw", async (req, res) => {
     ]);
 
     if (!currentUser) {
+      console.log("failed 4");
       return res.status(200).json({
         result: -1012,
         desc: "用户不存在",
@@ -332,6 +349,7 @@ router.post("/api/yeebet/withdraw", async (req, res) => {
     }
 
     if (currentUser.gameLock?.yeebet?.lock) {
+      console.log("failed 5");
       return res.status(200).json({
         result: -1001,
         desc: "账户已被封锁，请联系客服",
@@ -360,6 +378,7 @@ router.post("/api/yeebet/withdraw", async (req, res) => {
     ).lean();
 
     if (!updatedUser) {
+      console.log("failed 6");
       return res.status(200).json({
         result: -1030,
         desc: "扣款金额不足",
@@ -383,7 +402,7 @@ router.post("/api/yeebet/withdraw", async (req, res) => {
     });
   } catch (error) {
     console.error(
-      "YEEBET: Error in game provider calling pw66 getbalance api:",
+      "YEEBET: Error in game provider calling  getbalance api:",
       error.message
     );
     return res.status(200).json({
@@ -433,7 +452,10 @@ router.post("/api/yeebet/deposit", async (req, res) => {
     delete paramsForSign.sign;
     delete paramsForSign.bets;
 
-    const generatedSign = generateSignature(paramsForSign, yeebetSecret);
+    const generatedSign = generateSignature(
+      paramsForSign,
+      yeebetCallbackSecret
+    );
 
     if (sign !== generatedSign) {
       return res.status(200).json({
@@ -513,7 +535,7 @@ router.post("/api/yeebet/deposit", async (req, res) => {
     });
   } catch (error) {
     console.error(
-      "YEEBET: Error in game provider calling pw66 getbalance api:",
+      "YEEBET: Error in game provider calling  getbalance api:",
       error.message
     );
     return res.status(200).json({
@@ -553,7 +575,10 @@ router.post("/api/yeebet/rollback", async (req, res) => {
     const paramsForSign = { ...req.body };
     delete paramsForSign.sign;
 
-    const generatedSign = generateSignature(paramsForSign, yeebetSecret);
+    const generatedSign = generateSignature(
+      paramsForSign,
+      yeebetCallbackSecret
+    );
 
     if (sign !== generatedSign) {
       return res.status(200).json({
@@ -648,7 +673,7 @@ router.post("/api/yeebet/rollback", async (req, res) => {
     }
   } catch (error) {
     console.error(
-      "YEEBET: Error in game provider calling pw66 getbalance api:",
+      "YEEBET: Error in game provider calling  getbalance api:",
       error.message
     );
     return res.status(200).json({
@@ -998,4 +1023,284 @@ router.get(
   }
 );
 
+const getYeebetLastSyncTime = async () => {
+  const syncLog = await GameSyncLog.findOne({ provider: "yeebet" }).lean();
+  return syncLog?.syncTime || null;
+};
+
+const updateYeebetLastSyncTime = async (time) => {
+  await GameSyncLog.findOneAndUpdate(
+    { provider: "yeebet" },
+    { syncTime: time.toDate() },
+    { upsert: true, new: true }
+  );
+};
+
+const fetchYeebetPage = async (begintime, endtime, index = 0, size = 2000) => {
+  try {
+    const params = {
+      appid: yeebetLaunchAppID,
+      index,
+      size: Math.min(size, 2000),
+      begintime,
+      endtime,
+    };
+
+    const sign = generateSignature(params, yeebetSecret);
+    const fullParams = { ...params, sign };
+
+    const query = new URLSearchParams(fullParams).toString();
+    const response = await axios.get(
+      `${yeebetAPIURL}/api/record/bets/detail?${query}`
+    );
+
+    if (response.data.result !== 0) {
+      console.error("YEEBET page fetch error:", response.data);
+      return {
+        success: false,
+        error: response.data,
+        data: [],
+        total: 0,
+      };
+    }
+
+    return {
+      success: true,
+      data: response.data.array || [],
+      total: response.data.total || response.data.arraysize || 0,
+      arraysize: response.data.arraysize || 0,
+    };
+  } catch (error) {
+    console.error(`YEEBET page ${index} fetch error:`, error.message);
+    return {
+      success: false,
+      error: error.message,
+      data: [],
+      total: 0,
+    };
+  }
+};
+
+// ========== FETCH ALL PAGES ==========
+const fetchYeebetAllPages = async (begintime, endtime) => {
+  const size = 2000;
+  let index = 0;
+  let allData = [];
+  let hasMore = true;
+
+  while (hasMore) {
+    const result = await fetchYeebetPage(begintime, endtime, index, size);
+
+    if (!result.success) {
+      console.error(`YEEBET failed at page ${index}`);
+      break;
+    }
+
+    allData = allData.concat(result.data);
+
+    // Check if there's more data
+    if (result.arraysize >= size) {
+      index++;
+      // Small delay between pages to avoid rate limiting
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return {
+    success: true,
+    data: allData,
+    total: allData.length,
+    pagesProcessed: index + 1,
+  };
+};
+
+// ========== MAIN SYNC FUNCTION ==========
+const syncYeebetBetHistory = async () => {
+  try {
+    const now = moment.tz("Asia/Kuala_Lumpur");
+
+    // Get last sync time
+    const lastSyncTime = await getYeebetLastSyncTime();
+
+    let begintime;
+    if (!lastSyncTime) {
+      // First run - sync last 7 days
+      // console.log("[YEEBET Sync] First run - syncing last 7 days");
+      begintime = now.clone().subtract(7, "days").startOf("day").unix();
+    } else {
+      // Continue from last sync time
+      const lastSyncMoment = moment(lastSyncTime).tz("Asia/Kuala_Lumpur");
+      // console.log(
+      //   `[YEEBET Sync] Last sync: ${lastSyncMoment.format(
+      //     "YYYY-MM-DD HH:mm:ss"
+      //   )}`
+      // );
+      begintime = lastSyncMoment.unix();
+    }
+
+    const endtime = now.unix();
+
+    // console.log(
+    //   `[YEEBET Sync] Fetching from ${moment
+    //     .unix(begintime)
+    //     .format("YYYY-MM-DD HH:mm:ss")} to ${moment
+    //     .unix(endtime)
+    //     .format("YYYY-MM-DD HH:mm:ss")}`
+    // );
+
+    // Fetch all pages
+    const fetchResult = await fetchYeebetAllPages(begintime, endtime);
+
+    if (!fetchResult.success || fetchResult.data.length === 0) {
+      console.log("[YEEBET Sync] No data to process");
+      await updateYeebetLastSyncTime(now);
+      return {
+        success: true,
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        total: 0,
+        pagesProcessed: fetchResult.pagesProcessed || 0,
+      };
+    }
+
+    // console.log(
+    //   `[YEEBET Sync] Fetched ${fetchResult.data.length} records from ${fetchResult.pagesProcessed} pages`
+    // );
+
+    // Process to unified format
+    const processed = await processYeebetBetHistory(fetchResult.data);
+
+    if (!processed.success || processed.data.length === 0) {
+      console.log("[YEEBET Sync] No data after processing");
+      await updateYeebetLastSyncTime(now);
+      return {
+        success: true,
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        total: 0,
+      };
+    }
+
+    // Get existing betIds to check for duplicates
+    const betIds = processed.data.map((bet) => bet.betId);
+    const existingBetIds = new Set(
+      (
+        await GameGeneralDetailDataModal.find(
+          { provider: "YEEBET", betId: { $in: betIds } },
+          { betId: 1 }
+        ).lean()
+      ).map((r) => r.betId)
+    );
+
+    // Filter out existing records
+    const newRecords = processed.data.filter(
+      (bet) => !existingBetIds.has(bet.betId)
+    );
+    const skipped = processed.data.length - newRecords.length;
+
+    let inserted = 0;
+
+    if (newRecords.length > 0) {
+      try {
+        const result = await GameGeneralDetailDataModal.insertMany(newRecords, {
+          ordered: false,
+        });
+        inserted = result.length;
+      } catch (error) {
+        // Handle duplicate key errors gracefully
+        if (error.code === 11000) {
+          inserted = error.insertedDocs?.length || 0;
+          console.log(`[YEEBET Sync] Some duplicates skipped during insert`);
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Update last sync time
+    await updateYeebetLastSyncTime(now);
+
+    console.log(
+      `✅ [YEEBET Sync] Completed - Inserted: ${inserted}, Skipped: ${skipped}, Total fetched: ${fetchResult.data.length}`
+    );
+
+    return {
+      success: true,
+      total: fetchResult.data.length,
+      pagesProcessed: fetchResult.pagesProcessed,
+      inserted,
+      skipped,
+      syncTime: now.format("YYYY-MM-DD HH:mm:ss"),
+    };
+  } catch (error) {
+    console.error("[YEEBET Sync] Fatal error:", error.message);
+    return {
+      success: false,
+      error: error.message,
+      inserted: 0,
+      skipped: 0,
+    };
+  }
+};
+
+// async function fetchYeebetBetHistory() {
+//   try {
+//     const index = 0;
+//     const size = 2000;
+//     const begintime = moment
+//       .tz("Asia/Kuala_Lumpur")
+//       .subtract(1, "day")
+//       .startOf("day")
+//       .unix();
+
+//     const endtime = moment.tz("Asia/Kuala_Lumpur").unix();
+
+//     console.log(begintime, endtime);
+//     const params = {
+//       appid: yeebetLaunchAppID,
+//       index,
+//       size: Math.min(size, 2000),
+//       begintime,
+//       endtime,
+//     };
+
+//     const sign = generateSignature(params, yeebetSecret);
+//     const fullParams = { ...params, sign };
+
+//     const query = new URLSearchParams(fullParams).toString();
+//     const response = await axios.get(
+//       `${yeebetAPIURL}/api/record/bets/detail?${query}`
+//     );
+//     console.log(response.data);
+//     if (response.data.result !== 0) {
+//       console.error("YEEBET bet history error:", response.data);
+//       return {
+//         success: false,
+//         error: response.data,
+//         data: [],
+//         total: 0,
+//       };
+//     }
+
+//     return {
+//       success: true,
+//       data: response.data.array || [],
+//       total: response.data.arraysize || 0,
+//     };
+//   } catch (error) {
+//     console.error("YEEBET fetchBetHistory error:", error.message);
+//     return {
+//       success: false,
+//       error: error.message,
+//       data: [],
+//       total: 0,
+//     };
+//   }
+// }
+
 module.exports = router;
+module.exports.syncYeebetBetHistory = syncYeebetBetHistory;
