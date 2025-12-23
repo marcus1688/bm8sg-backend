@@ -18,6 +18,8 @@ const qs = require("querystring");
 const GameWalletLog = require("../../models/gamewalletlog.model");
 const GameSyncLog = require("../../models/game_syncdata.model");
 const slotPussy888Modal = require("../../models/slot_pussy888.model");
+const { syncYeebetBetHistory } = require("./live_yeebet");
+
 const cron = require("node-cron");
 const https = require("https");
 
@@ -2024,9 +2026,9 @@ const fetchPussy888TotalReport = async (startDate, endDate) => {
     pussy888Secret
   );
 
-  console.log(
-    `[Pussy888 API] Fetching total report: ${startDate} to ${endDate}`
-  );
+  // console.log(
+  //   `[Pussy888 API] Fetching total report: ${startDate} to ${endDate}`
+  // );
 
   const response = await axios.get(
     `${pussy888DataAPIURL}/AgentTotalReport.ashx`,
@@ -2049,7 +2051,7 @@ const fetchPussy888TotalReport = async (startDate, endDate) => {
   }
 
   const results = response.data.results || [];
-  console.log(`[Pussy888 API] Total report returned ${results.length} players`);
+  // console.log(`[Pussy888 API] Total report returned ${results.length} players`);
 
   return results;
 };
@@ -2107,11 +2109,11 @@ const fetchPussy888DetailedGameHistory = async (gameId, startDate, endDate) => {
     pageIndex = response.data.pageindex + 1;
     totalPages = Math.ceil(response.data.total / response.data.pagesize);
 
-    console.log(
-      `[Pussy888 Detail] ${gameId}: Page ${pageIndex - 1}/${totalPages} - ${
-        response.data.results.length
-      } items`
-    );
+    // console.log(
+    //   `[Pussy888 Detail] ${gameId}: Page ${pageIndex - 1}/${totalPages} - ${
+    //     response.data.results.length
+    //   } items`
+    // );
   } while (pageIndex <= totalPages);
 
   return allResults;
@@ -2130,9 +2132,9 @@ const fetchAndStorePussy888GameHistory = async (
   endDate
 ) => {
   try {
-    console.log(
-      `[Pussy888 Detail] Fetching ${gameId} (${username}): ${startDate} to ${endDate}`
-    );
+    // console.log(
+    //   `[Pussy888 Detail] Fetching ${gameId} (${username}): ${startDate} to ${endDate}`
+    // );
 
     const allItems = await fetchPussy888DetailedGameHistory(
       gameId,
@@ -2145,9 +2147,9 @@ const fetchAndStorePussy888GameHistory = async (
       return { totalRecords: 0, newRecords: 0, skipped: 0 };
     }
 
-    console.log(
-      `[Pussy888 Detail] ${username}: Fetched ${allItems.length} total items`
-    );
+    // console.log(
+    //   `[Pussy888 Detail] ${username}: Fetched ${allItems.length} total items`
+    // );
 
     const betIds = allItems.map((item) => String(item.uuid));
     const existingBetIds = new Set(
@@ -2182,18 +2184,18 @@ const fetchAndStorePussy888GameHistory = async (
           : moment.utc().toDate(),
       }));
 
-    console.log(
-      `[Pussy888 Detail] ${username}: New=${newRecords.length}, Skipped=${
-        allItems.length - newRecords.length
-      }`
-    );
+    // console.log(
+    //   `[Pussy888 Detail] ${username}: New=${newRecords.length}, Skipped=${
+    //     allItems.length - newRecords.length
+    //   }`
+    // );
 
     // Batch insert new records
     if (newRecords.length > 0) {
       await slotPussy888Modal.insertMany(newRecords, { ordered: false });
-      console.log(
-        `[Pussy888 Detail] ${username}: Inserted ${newRecords.length} records`
-      );
+      // console.log(
+      //   `[Pussy888 Detail] ${username}: Inserted ${newRecords.length} records`
+      // );
     }
 
     return {
@@ -2216,12 +2218,12 @@ const syncPussy888ForSingleDay = async (date) => {
     const start = moment(date).startOf("day").format("YYYY-MM-DD HH:mm:ss");
     const end = moment(date).endOf("day").format("YYYY-MM-DD HH:mm:ss");
 
-    console.log(`[Pussy888 Sync Day] Syncing ${date}: ${start} to ${end}`);
+    // console.log(`[Pussy888 Sync Day] Syncing ${date}: ${start} to ${end}`);
 
     const activePlayers = await fetchPussy888TotalReport(startDate, endDate);
 
     if (!activePlayers || activePlayers.length === 0) {
-      console.log(`[Pussy888 Sync Day] No active players for ${date}`);
+      // console.log(`[Pussy888 Sync Day] No active players for ${date}`);
       return {
         date: date,
         totalPlayers: 0,
@@ -2232,9 +2234,9 @@ const syncPussy888ForSingleDay = async (date) => {
       };
     }
 
-    console.log(
-      `[Pussy888 Sync Day] Found ${activePlayers.length} active players for ${date}`
-    );
+    // console.log(
+    //   `[Pussy888 Sync Day] Found ${activePlayers.length} active players for ${date}`
+    // );
 
     let syncResults = {
       date: date,
@@ -2254,9 +2256,9 @@ const syncPussy888ForSingleDay = async (date) => {
         const username = await getUsernameFromPussy888GameID(gameId);
 
         if (!username) {
-          console.log(
-            `[Pussy888 Sync Day] ${date} - No user found for gameId: ${gameId}`
-          );
+          // console.log(
+          //   `[Pussy888 Sync Day] ${date} - No user found for gameId: ${gameId}`
+          // );
           syncResults.skipped++;
           syncResults.playerDetails.push({
             gameId: gameId,
@@ -2266,9 +2268,9 @@ const syncPussy888ForSingleDay = async (date) => {
           continue;
         }
 
-        console.log(
-          `[Pussy888 Sync Day] ${date} - Syncing ${username} (${gameId})`
-        );
+        // console.log(
+        //   `[Pussy888 Sync Day] ${date} - Syncing ${username} (${gameId})`
+        // );
 
         const result = await fetchAndStorePussy888GameHistory(
           gameId,
@@ -2301,9 +2303,9 @@ const syncPussy888ForSingleDay = async (date) => {
       }
     }
 
-    console.log(
-      `[Pussy888 Sync Day] ${date} - Completed: ${syncResults.successful} successful, ${syncResults.failed} failed, ${syncResults.skipped} skipped`
-    );
+    // console.log(
+    //   `[Pussy888 Sync Day] ${date} - Completed: ${syncResults.successful} successful, ${syncResults.failed} failed, ${syncResults.skipped} skipped`
+    // );
 
     return syncResults;
   } catch (error) {
@@ -2315,11 +2317,11 @@ const syncPussy888ForSingleDay = async (date) => {
 // Main sync function
 const syncPussy888GameHistory = async () => {
   try {
-    console.log(
-      `[Pussy888 Sync] Starting sync at ${moment().format(
-        "YYYY-MM-DD HH:mm:ss"
-      )}`
-    );
+    // console.log(
+    //   `[Pussy888 Sync] Starting sync at ${moment().format(
+    //     "YYYY-MM-DD HH:mm:ss"
+    //   )}`
+    // );
 
     const now = moment().utc().add(8, "hours");
 
@@ -2346,7 +2348,7 @@ const syncPussy888GameHistory = async () => {
       }
     }
 
-    console.log(`[Pussy888 Sync] Days to sync: ${daysToSync.join(", ")}`);
+    // console.log(`[Pussy888 Sync] Days to sync: ${daysToSync.join(", ")}`);
 
     let totalSyncResults = {
       totalDays: daysToSync.length,
@@ -2360,7 +2362,7 @@ const syncPussy888GameHistory = async () => {
 
     for (const date of daysToSync) {
       try {
-        console.log(`\n[Pussy888 Sync] ======== Processing ${date} ========`);
+        // console.log(`\n[Pussy888 Sync] ======== Processing ${date} ========`);
 
         const dayResult = await syncPussy888ForSingleDay(date);
 
@@ -2391,13 +2393,13 @@ const syncPussy888GameHistory = async () => {
     // Update last sync time
     await updatePussy888LastSyncTime(now);
 
-    console.log(`\n[Pussy888 Sync] ======== SUMMARY ========`);
-    console.log(
-      `Days processed: ${totalSyncResults.daysProcessed}/${totalSyncResults.totalDays}`
-    );
-    console.log(
-      `Players synced: ${totalSyncResults.successful} successful, ${totalSyncResults.failed} failed, ${totalSyncResults.skipped} skipped`
-    );
+    // console.log(`\n[Pussy888 Sync] ======== SUMMARY ========`);
+    // console.log(
+    //   `Days processed: ${totalSyncResults.daysProcessed}/${totalSyncResults.totalDays}`
+    // );
+    // console.log(
+    //   `Players synced: ${totalSyncResults.successful} successful, ${totalSyncResults.failed} failed, ${totalSyncResults.skipped} skipped`
+    // );
 
     return {
       success: true,
@@ -2412,12 +2414,24 @@ const syncPussy888GameHistory = async () => {
 
 if (process.env.NODE_ENV !== "development") {
   cron.schedule("*/5 * * * *", async () => {
-    console.log("[Cron] Starting Pussy888 sync job");
     try {
       await syncPussy888GameHistory();
-      console.log("[Cron] Pussy888 sync completed successfully");
+      // console.log("[Cron] Pussy888 sync completed successfully");
     } catch (error) {
       console.error("[Cron] Pussy888 sync failed:", error.message);
+    }
+
+    try {
+      const yeebetResult = await syncYeebetBetHistory();
+      if (yeebetResult.success) {
+        console.log(
+          `✅ YEEBET: ${yeebetResult.inserted} inserted, ${yeebetResult.skipped} skipped`
+        );
+      } else {
+        console.error("❌ YEEBET sync failed:", yeebetResult.error);
+      }
+    } catch (error) {
+      console.error("❌ YEEBET cron error:", error.message);
     }
   });
 }

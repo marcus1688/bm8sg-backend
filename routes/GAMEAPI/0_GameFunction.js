@@ -24,6 +24,8 @@ const kioskbalance = require("../../models/kioskbalance.model");
 const GameWalletLog = require("../../models/gamewalletlog.model");
 const { updateUserGameLocks } = require("../users");
 
+const GameGeneralDetailDataModal = require("../../models/gameDetail.model");
+
 const SlotEpicWinModal = require("../../models/slot_epicwin.model");
 const SlotBTGamingModal = require("../../models/slot_btgaming.model");
 const SlotAceWinModal = require("../../models/slot_acewin.model");
@@ -1638,6 +1640,15 @@ router.post(
           model: slotPussy888Modal,
           category: "slot",
           usernameField: user.gameId,
+        },
+        {
+          name: "yeebet",
+          displayName: "YEEBET",
+          model: GameGeneralDetailDataModal,
+          category: "live",
+          usernameField: user.gameId,
+          dateField: "settleTime",
+          extraMatch: { provider: "YEEBET" },
         },
       ];
 
